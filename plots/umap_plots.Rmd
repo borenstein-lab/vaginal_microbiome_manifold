@@ -1,0 +1,243 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup, include = FALSE}
+rm(list=ls())
+
+library(vegan)
+library(ggarchery)
+library(data.table)
+library(ggpubr)
+library(ggpmisc)
+library(scales)
+library(readxl)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(writexl)
+library(ggpubr)
+library(gridExtra)
+library(grid)
+library(RColorBrewer)
+library(circlize)
+library(xlsx)
+library(tibble)
+library(umap)
+library(extrafont)
+library(showtext)
+font_add_google("Gafata")
+showtext_auto()
+```
+
+# params
+
+```{r variables}
+file_path = 'C:/Users/morts/Documents/TAU/Manifold_Project/Data/Serrano_Ravel13_Ravel11_Carter22/ps_res/'
+
+file_name = paste0(file_path, 'ps_res_PCA_umap_02072023.xlsx')
+
+sheet_abun = 'abundance'
+sheet_meta = 'meta'
+sheet_umap = 'umap'
+sheet_pcoa = 'pcoa'
+
+save_path = paste0(file_path, 'figures/')
+
+date = '02072023'
+```
+
+# color vectors
+
+```{r}
+community_colors = c('I-A' = '#9d0208', 'I-B' = '#dc2f02', 'II' = '#FFD60A', 'III-A' = '#e85d04','III-B' = '#faa307','IV-A' = '#22577a', 'IV-B' = '#5390D9', 'IV-C0' = '#2E214F', 'IV-C1' = '#63479B','IV-C2' = '#8962C7', 'IV-C3' = '#AB7DDA', 'IV-C4' = '#DEC9E9', 'V' = '#E2D6B8')
+
+db_colors = c('temp_pyro' = '#006d77', 'temp_hiseq' = '#83c5be', 'cros_I' = '#edf6f9', 'cros_II' = '#ffddd2', 'carter' = '#E6744A', 'srin' = '#BF5F3C')
+
+coltypes_vec = c("text", "text", "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+                 "text", "text", "numeric", "text", "numeric", "numeric", "numeric", "numeric", "text",
+                 "text", "numeric", "numeric", "numeric", "text", "numeric", "numeric", "numeric", "numeric", 
+                 "text", "numeric", "text", "numeric", "numeric", "numeric", "text", "numeric", "numeric")
+```
+
+```{r}
+get_data = function(path, sheet, coltypes_vec){
+  df = read_excel(path, sheet = sheet, col_names = TRUE, col_types = coltypes_vec)
+  df = as.data.frame(df)
+  
+  if("...1" %in% colnames(df)){
+    names(df)[names(df) == '...1'] <- 'sampleID'
+  }
+  
+  rownames(df) = df$sampleID
+  df = subset(df, select = -c(sampleID))
+}
+```
+
+
+```{r Load data, include = FALSE, message = FALSE, warning = FALSE}
+meta = get_data(file_name, sheet_meta, coltypes_vec)
+umap = get_data(file_name, sheet_umap, c("text", "numeric", "numeric"))
+```
+
+```{r UMAP, message = FALSE, warning = FALSE}
+## Order
+all_meta = merge(meta, umap, by = 'row.names')
+all_meta$subjectID <- as.factor(all_meta$subjectID)
+colnames(all_meta)[2] <- "sampleID_orig"
+colnames(all_meta)[1] <- 'sampleID'
+all_meta$BV <- ifelse(all_meta$CST %in% c('I', 'II', 'III', 'V'), 'LD', 'NLD')
+all_meta$db_type <- ifelse(all_meta$db %in% c('cros_I', 'cros_II'), 'CROS', 'TEMP')
+all_meta$root <- ifelse(all_meta$subCST %in% c('IV-C0'), 'root', 'reg')
+```
+
+```{r}
+p1 = ggplot(all_meta) +
+    geom_point(aes(x = fa1, y = fa2),
+               pch = 21, size = 1, stroke = 0.5, color = '#A0A3B5', fill = '#A0A3B5', alpha = 0.8, 
+               position = position_jitter(seed = 42, width = 3, height = 3)) +
+    theme_bw(base_family = 'Gafata') +
+    labs(title = '', x = '', y = '') + 
+    theme(text = element_text(size = 80),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          axis.title = element_blank(),
+          plot.title = element_text(hjust = 0.5))
+ggsave(filename = paste0(save_path, 'umap_small_15022023.png'), plot = p1,
+       width = 3, height = 2.8, units = "in")
+print(p1)
+```
+
+# subCST
+
+```{r}
+p2 = ggplot(all_meta) +
+    geom_point(aes(x = fa1, y = fa2, fill = subCST),
+               pch = 21, size = 3.2, stroke = 0.5, color = '#0F0F19', alpha = 0.7) +
+    scale_fill_manual(values = community_colors, name = 'subCST') +
+          theme(legend.spacing.y = unit(0, "lines"),
+          legend.margin = margin(0, 0, 0, 0)) +
+    annotate(geom = 'text', label = 'A', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 14) +
+    theme_bw(base_family = 'Gafata') +
+    labs(title = '', x = '', y = '') + 
+    theme(text = element_text(size = 30),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          axis.title = element_blank(),
+          legend.spacing.y = unit(2, "cm"),
+          legend.spacing.x = unit(0.5, 'cm'),
+          legend.key = element_rect(size = 5),
+          legend.key.size = unit(2, 'lines'),
+          legend.box.margin = margin(-5,0,0,0),
+          legend.position = 'bottom') +
+    guides(fill = guide_legend(override.aes = list(shape = 21, size = 7), ncol = 4, title.hjust = 1.5, title.vjust = 1))
+# ggsave()
+print(p2)
+```
+
+# db
+
+```{r}
+# all_meta$db <- factor(all_meta$db, levels = c('cros_II','cros_I','temp_hiseq','temp_pyro'))
+# all_meta <- all_meta[order(levels(all_meta$db)),]
+p3 = ggplot() +
+    # geom_point(subset(all_meta, db != 'cros_II'), aes(x = fa1, y = fa2, fill = db),
+    #            pch = 21, size = 1.5, stroke = 0.5, color = '#0F0F19', alpha = 0.8,
+    #            position = position_jitter(seed = 42, height = 3, width = 3)) +
+    geom_point(data = all_meta %>%
+         arrange(db), aes(x = fa1, y = fa2, fill = db),
+               pch = 21, size = 2.8, stroke = 0.5, color = '#0F0F19', alpha = 0.3,
+               position = position_jitter(seed = 42, height = 3, width = 3)) +
+    scale_fill_manual(values = db_colors, name = 'Dataset', labels = c('PVI', 'VCU', 'AVPVC', 'PHS', 'UAB_hiseq', 'UAB_pyro')) +
+          theme(legend.spacing.y = unit(0, "lines"),
+          legend.margin = margin(0, 0, 0, 0)) +
+    annotate(geom = 'text', label = 'B', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 14) +
+    theme_bw(base_family = 'Gafata') +
+    labs(title = '', x = '', y = '') + 
+    theme(text = element_text(size = 30),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          axis.title = element_blank(),
+          legend.spacing.y = unit(2, "cm"),
+          legend.spacing.x = unit(1, 'cm'),
+          legend.key = element_rect(size = 5),
+          legend.key.size = unit(2, 'lines'),
+          legend.margin = margin(-5, 0, 0, 0),
+          legend.box.margin = margin(-5,0,0,0),
+          legend.position = 'bottom') +
+    guides(shape = guide_legend(ncol = 3),
+                 fill = guide_legend(override.aes = list(shape = 21, size = 7), ncol = 2, title.hjust = 1.5, title.vjust = 1))
+# ggsave()
+print(p3)
+```
+
+# ps
+
+```{r}
+cols_magma = c('#F6F7E0', '#fcfdbf', '#fde2a3', '#fec68a', '#fec488', '#fec488', '#fea772', '#fc8961', '#fc8961', '#f56b5c', '#f56b5c',
+               '#e75263', '#D54875', '#D54875', '#d0416f', '#b73779', '#9c2e7f', '#832681', '#6a1c81', 
+               '#51127c', '#36106b', '#1d1147', '#0a0822', '#000004')
+col_fun = colorRamp2(c(0, 0.25, 0.5, 0.75, 1), c("#DC143C", "#FFA07A", "#FFEFD5", "#87CEFA", "#6495ED"))
+p4 = ggplot(all_meta) +
+    geom_point(data = subset(all_meta, root == 'reg'), aes(x = fa1, y = fa2, fill = mt_pseudotime, color = root),
+               pch = 21, size = 2, stroke = 0.5, alpha = 0.8) +
+    geom_point(data = subset(all_meta, root == 'root'), aes(x = fa1, y = fa2, color = root),
+               pch = 21, size = 2.5, stroke = 0.00001, alpha = 1, fill = '#23232E', show.legend = TRUE) +
+    scale_fill_gradientn(colors = rev(c('#F8F8D6', '#fcfdbf','#fc8961','#b73779', '#51127c', '#000004')), #rev(cols_magma),
+                        values = c(0, 0.35, 0.5, 0.85, 0.96, 1), #c(0, 0.25, 0.5, 0.75, 1), 
+                        'Pseudo-time') +
+    scale_color_manual(values = c("#000000" = 'root', "#0E0E0E" = 'reg'), name = "Root samples") +
+    annotate(geom = 'text', label = 'C', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 14) +
+    theme_bw(base_family = 'Gafata') +
+    labs(title = '', x = '', y = '') + 
+    theme(text = element_text(size = 30),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          axis.title = element_blank(),
+          legend.spacing.y = unit(1.2, "lines"),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "bottom",
+          legend.text = element_text(angle = 45, size = 20),
+          legend.box.margin = margin(-5,0,0,0)) +
+  guides(fill = guide_colourbar(barwidth = 10, barheight = 1, frame.colour = '#23232E', ticks.colour = 'black', reverse = FALSE,
+                                title.hjust = 1.5, title.vjust = 0.8, label.hjust = 0.8),
+         color = guide_legend(ncol = 2))
+
+    
+# ggsave()
+print(p4)
+```
+# save
+
+```{r, message = FALSE, warning = FALSE}
+ggarrange(p2, p3, p4, nrow = 1, ncol = 3, align = "h") %>%
+ggexport(filename = paste0(save_path, 'PCA_umap_02072023.png'), width = 1900, height = 700)
+while (!is.null(dev.list()))  dev.off()
+```
+
+```{r}
+ggplot() +
+  geom_point(data = subset(all_meta, shannon_index < 4.0), 
+             aes(x = fa1, y = fa2), color = 'black')+
+  geom_point(data = subset(all_meta, subCST == 'IV-C0' & shannon_index >= 4.0), 
+             aes(x = fa1, y = fa2), color = 'red') 
+  
+```
+
+
+```{r}
+g = ggplot(subset(all_meta, CST == 'V'), aes(x = fa1, y = fa2)) +
+  geom_point(aes(fill = subCST), shape = 21, alpha = 0.5, size = 2) +
+  # geom_smooth(method = "glm", color = 'black', family=gaussian(link="log")) +
+  # geom_line(aes(fa1, fa2)) +
+  # stat_poly_line(color = 'black', formula = y ~ poly(x, 3)) +
+  # stat_poly_eq(family = 'Gafata', formula = formula, size = 5) +
+  scale_fill_manual(values = community_colors, name = 'subCST') +
+  labs(title = '', x = '', y = '') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20)) 
+print(g)
+```
+

@@ -1,0 +1,100 @@
+---
+title: "VALENCIA_results_heatmap_27032022"
+output: html_document
+---
+
+```{r}
+rm(list=ls())
+
+library(vegan)
+library(data.table)
+library(seqinr)
+library(ggpubr)
+library(scales)
+library(readxl)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(writexl)
+library(ggpubr)
+library(pacman)
+library(devtools)
+library(stringr)
+library(RColorBrewer)
+library(xlsx)
+library(ComplexHeatmap)
+library(circlize)
+library(tidyverse)
+
+
+```
+
+
+
+```{r variables}
+all_file_path = 'C:/Users/morts/Documents/TAU/BV_Project/Data/SPECIFIC_PAPERS/Serrano_et_al.2019/noDuplicatedID/DADA2_results/'
+all_file_name = 'filt_valenciaSpecOnly.xlsx'
+sheet_name_centered = 'centered_abundance'
+sheet_name_standarized = 'standarized_abundance'
+sheet_name_metadata = 'meta'
+sheet_name_valencia = 'valencia'
+```
+
+
+```{r get data function}
+get_data = function(file_path, file_name, sheet_name){
+  filename = paste(file_path, file_name, sep = '')
+  raw_df = read_excel(filename, sheet = sheet_name)
+  raw_df = as.data.frame(raw_df)
+
+  df <- raw_df[,-1]
+  rownames(df) <- raw_df[,1]
+
+  return(df)
+}
+```
+
+
+
+```{r Load data}
+setwd(all_file_path)
+cent_df <- get_data(all_file_path, all_file_name, sheet_name_centered)
+stand_df <- get_data(all_file_path, all_file_name, sheet_name_standarized)
+
+meta_df <- get_data(all_file_path, all_file_name, sheet_name_metadata)
+valencia_df <- get_data(all_file_path, all_file_name, sheet_name_valencia)
+
+head(valencia_df, 5)
+```
+
+```{r}
+cent_mat = as.matrix(t(cent_df))
+stand_mat = as.matrix(t(stand_df))
+```
+
+```{r}
+get_heatmap = function(d, heatmap_tit){
+  col_fun = colorRamp2(seq(min(d), max(d), length = 7), c("seashell", "seashell2", "orchid1", "orchid2", "orchid3", "orchid4", "palevioletred4"))
+  # anno_col_fun = colorRamp2(seq(min(vec), max(vec), length = 3), c("white", "seagreen3", "seagreen"))
+  
+  # column_ha = HeatmapAnnotation(Shannon = vec, col = list(Shannon = anno_col_fun),
+  #                               annotation_legend_param = list(Shannon = list(title_position = "lefttop",
+                                                                              # direction = "horizontal")))
+  
+  Heatmap(d, name = 'Abundance', col = col_fun,
+          column_title = heatmap_tit,
+          show_row_names = TRUE, cluster_rows = FALSE, cluster_columns = FALSE,
+          show_column_names = FALSE,
+          # top_annotation = column_ha,
+          
+          column_names_rot = 45,
+          row_names_gp = gpar(fontsize = 10),
+          heatmap_legend_param = list(title_position = "lefttop", direction = "horizontal"))
+}
+```
+
+```{r}
+h = get_heatmap(stand_mat, '')
+h
+```
+

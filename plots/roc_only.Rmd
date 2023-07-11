@@ -1,0 +1,436 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+---
+title: "R Notebook"
+---
+
+
+
+```{r}
+rm(list=ls())
+
+library(data.table)
+library(ggpubr)
+library(scales)
+library(readxl)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggpubr)
+library(gridExtra)
+library(grid)
+library(RColorBrewer)
+library(xlsx)
+library(tibble)
+# library(scale-virdis)
+library(extrafont)
+library(showtext)
+font_add_google("Gafata")
+showtext_auto()
+```
+
+```{r}
+top_path = '../../Data/Serrano_Ravel13_Ravel11_Carter22/ps_res/'
+
+roc_file = paste0(top_path, 'roc_res_PCA_umap_02072023.xlsx')
+nn_roc_file = paste0(top_path, 'nn_roc_res_PCA_umap_02072023.xlsx')
+
+save_path = paste0(top_path, 'figures/')
+
+date = '02072023'
+```
+
+
+```{r plot function}
+get_data = function(path, sheet){
+  df = read_excel(path, sheet = sheet, col_names = TRUE)
+  df = as.data.frame(df)
+  
+  # df = subset(df, select = -c(...1))
+  
+  df$col <- df %>%
+   mutate(shuff_num = case_when(str_detect(shuff_num, "shuff_") ~ 
+     'grey', TRUE ~ "red"))
+
+  return(df)
+}
+
+```
+
+# Load data
+
+```{r, message = FALSE, warning = FALSE}
+nug = get_data(roc_file, 'nugent_bin')
+ph = get_data(roc_file, 'ph_bin')
+amsel = get_data(roc_file, 'BV_amsel_bin')
+whiff_df = get_data(roc_file, 'whiff')
+fluid_df = get_data(roc_file, 'vag_fluid')
+clue_df = get_data(roc_file, 'clue')
+
+nn_nug = get_data(nn_roc_file, 'nugent_bin')
+nn_ph = get_data(nn_roc_file, 'ph_bin')
+nn_amsel = get_data(nn_roc_file, 'BV_amsel_bin')
+# nn_whiff_df = get_data(nn_roc_file, 'whiff')
+# nn_fluid_df = get_data(nn_roc_file, 'fluid')
+# nn_clue_df = get_data(nn_roc_file, 'clue')
+
+```
+
+
+# Original manifold
+
+### nugent
+
+```{r, fig.height = 3, fig.width = 4}
+cur_df = nug
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+g1 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "mako") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = 'High Nugent score', x = '', y = 'True Positive Rate') +
+  annotate(geom = 'text', label = 'A', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none',
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+print(g1)
+```
+
+### amsel
+
+```{r, fig.height = 3, fig.width = 4}
+cur_df = amsel
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+g2 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "mako") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = "Amsel's test", x = '', y = '') +
+  annotate(geom = 'text', label = 'B', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none',
+        axis.text = element_blank(),
+        axis.ticks = element_blank())
+print(g2)
+```
+
+### ph
+
+```{r, fig.height = 3, fig.width = 4}
+cur_df = ph
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+g3 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "mako") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = 'Elevated pH', x = '', y = '') +
+  annotate(geom = 'text', label = 'C', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none',
+        axis.text = element_blank(),
+        axis.ticks = element_blank())
+print(g3)
+```
+
+### whiff
+
+```{r, fig.height = 3, fig.width = 4}
+cur_df = whiff_df
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+g4 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "mako") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = 'Whiff test', x = '', y = 'True Positive Rate') +
+  annotate(geom = 'text', label = 'D', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none',
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+print(g4)
+```
+
+### clue
+
+```{r, fig.height = 3, fig.width = 4}
+cur_df = clue_df
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+g5 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "mako") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = 'Clue cells', x = '', y = '') +
+  annotate(geom = 'text', label = 'E', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none',
+        axis.text = element_blank(),
+        axis.ticks = element_blank())
+print(g5)
+```
+
+### fluid
+
+```{r, fig.height = 3, fig.width = 4}
+cur_df = fluid_df
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+g6 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "mako") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = 'Vaginal fluid', x = '', y = '') +
+  annotate(geom = 'text', label = 'F', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none',
+        axis.text = element_blank(),
+        axis.ticks = element_blank())
+print(g6)
+```
+
+# nn plots
+
+### nugent
+
+```{r, fig.height = 3, fig.width = 4}
+cur_df = nn_nug
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+g7 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "rocket") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = 'High Nugent score (NN)', x = 'False Positive Rate', y = 'True Positive Rate') +
+  annotate(geom = 'text', label = 'G', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none')
+print(g7)
+```
+
+### amsel
+
+```{r, fig.height = 3, fig.width = 4}
+cur_df = nn_amsel
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+g8 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "rocket") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = "Amsel's test (NN)", x = 'False Positive Rate', y = '') +
+  annotate(geom = 'text', label = 'H', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none',
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+print(g8)
+```
+
+### ph
+
+```{r, fig.height = 3, fig.width = 4}
+cur_df = nn_ph
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+g9 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "rocket") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = 'Elevated pH (NN)', x = 'False Positive Rate', y = '') +
+  annotate(geom = 'text', label = 'I', x = -Inf, y = Inf, hjust = -2.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none',
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+print(g9)
+```
+
+### whiff
+
+```{r, fig.height = 3, fig.width = 4}
+# cur_df = nn_whiff_df
+# last = head(unique(cur_df$shuff_num), n = 1)
+# auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# # getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+# g10 = ggplot() +
+#   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+#   scale_colour_viridis_d(option = "rocket") +
+#   geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+#   labs(title = 'Whiff test', x = '', y = 'True Positive Rate') +
+#   annotate(geom = 'text', label = 'D', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+#   annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+#   theme_bw(base_family = 'Gafata') +
+#   theme(text = element_text(size = 20),
+#         legend.position = 'none')
+# print(g10)
+```
+
+### clue
+
+```{r, fig.height = 3, fig.width = 4}
+# cur_df = nn_clue_df
+# last = head(unique(cur_df$shuff_num), n = 1)
+# auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# # getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+# g11 = ggplot() +
+#   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+#   scale_colour_viridis_d(option = "rocket") +
+#   geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+#   labs(title = 'Clue cells', x = '', y = 'True Positive Rate') +
+#   annotate(geom = 'text', label = 'D', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+#   annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+#   theme_bw(base_family = 'Gafata') +
+#   theme(text = element_text(size = 20),
+#         legend.position = 'none',
+#         axis.text.y = element_blank(),
+#         axis.ticks.y = element_blank())
+# print(g11)
+```
+
+### fluid
+
+```{r, fig.height = 3, fig.width = 4}
+# cur_df = nn_fluid_df
+# last = head(unique(cur_df$shuff_num), n = 1)
+# auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# # getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+# g12 = ggplot() +
+#   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+#   scale_colour_viridis_d(option = "rocket") +
+#   geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+#   labs(title = 'Vaginal fluid', x = '', y = '') +
+#   annotate(geom = 'text', label = 'F', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+#   annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+#   theme_bw(base_family = 'Gafata') +
+#   theme(text = element_text(size = 20),
+#         legend.position = 'none',
+#         axis.text.y = element_blank(),
+#         axis.ticks.y = element_blank())
+# print(g12)
+```
+
+
+## save
+
+```{r}
+# ggarrange(g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, g12, nrow = 4, ncol = 3) %>%
+ggarrange(g1, g2, g3, g4, g5, g6, g7, g8, g9, nrow = 3, ncol = 3) %>%
+ggexport(filename = paste0(save_path, 'roc_ps_02072023.png'), width = 1200, height = 1200)
+while (!is.null(dev.list()))  dev.off()
+```
+
+# Predict BV with std ps
+
+```{r}
+predict_bv = paste0(top_path, '10days_without_bv_diff_05062023.xlsx')
+pred_bv = read_excel(predict_bv, sheet = 'bv', col_names = TRUE) %>%
+          mutate(color = case_when(str_detect(shuff_num, "shuff_") ~ 
+          'grey', TRUE ~ "red"))
+
+# pred_nug = read_excel(predict_bv, sheet = 'nug', col_names = TRUE) %>%
+#           mutate(color = case_when(str_detect(shuff_num, "shuff_") ~ 
+#           'grey', TRUE ~ "red"))
+# 
+# pred_ph = read_excel(predict_bv, sheet = 'ph', col_names = TRUE) %>%
+#           mutate(color = case_when(str_detect(shuff_num, "shuff_") ~ 
+#           'grey', TRUE ~ "red"))
+```
+```{r}
+cur_df = pred_bv
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+p1 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.08) +
+  scale_colour_viridis_d(option = "magma") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 1, color = 'gray19') +
+  labs(title = '', x = 'False Positive Rate', y = 'True Positive Rate') +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none')
+print(p1)
+
+ggsave(filename = paste0(save_path, '10_days_predict_bv.png'), plot = p1,
+       width = 2, height = 1.8, units = "in", limitsize = TRUE)
+```
+
+
+```{r}
+cur_df = pred_nug
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+p2 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "rocket") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = '', x = 'False Positive Rate', y = 'True Positive Rate') +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none')
+print(p2)
+```
+
+```{r}
+cur_df = pred_ph
+last = head(unique(cur_df$shuff_num), n = 1)
+auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
+# getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
+p3 = ggplot() +
+  geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
+  scale_colour_viridis_d(option = "rocket") +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  labs(title = '', x = 'False Positive Rate', y = 'True Positive Rate') +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = 20),
+        legend.position = 'none')
+print(p3)
+```
+
+
+# Save
+
+```{r}
+ggarrange(p1, p2, p3, nrow = 1, ncol = 3) %>%
+ggexport(filename = paste0(save_path, 'roc_subjects_std_01062023.png'), width = 1200, height = 400)
+while (!is.null(dev.list()))  dev.off()
+```
+
