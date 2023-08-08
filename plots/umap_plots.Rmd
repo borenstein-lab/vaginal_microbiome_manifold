@@ -54,8 +54,6 @@ date = '02072023'
 ```{r}
 community_colors = c('I-A' = '#9d0208', 'I-B' = '#dc2f02', 'II' = '#FFD60A', 'III-A' = '#e85d04','III-B' = '#faa307','IV-A' = '#22577a', 'IV-B' = '#5390D9', 'IV-C0' = '#2E214F', 'IV-C1' = '#63479B','IV-C2' = '#8962C7', 'IV-C3' = '#AB7DDA', 'IV-C4' = '#DEC9E9', 'V' = '#E2D6B8')
 
-db_colors = c('temp_pyro' = '#006d77', 'temp_hiseq' = '#83c5be', 'cros_I' = '#edf6f9', 'cros_II' = '#ffddd2', 'carter' = '#E6744A', 'srin' = '#BF5F3C')
-
 coltypes_vec = c("text", "text", "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
                  "text", "text", "numeric", "text", "numeric", "numeric", "numeric", "numeric", "text",
                  "text", "numeric", "numeric", "numeric", "text", "numeric", "numeric", "numeric", "numeric", 
@@ -142,17 +140,23 @@ print(p2)
 ```{r}
 # all_meta$db <- factor(all_meta$db, levels = c('cros_II','cros_I','temp_hiseq','temp_pyro'))
 # all_meta <- all_meta[order(levels(all_meta$db)),]
+db_colors = c('temp_pyro' = '#F7C59F', 'temp_hiseq' = '#EFEFD0', 'cros_I' = '#89B1D0', 'cros_II' = '#1A659E', 'carter' = '#FA5C23', 'srin' = '#00365F')
+#ff6b35, #f7c59f, #efefd0, #004e89, #1a659e
+all_meta$db = factor(all_meta$db, levels = rev(c('srin', 'cros_II', 'carter', 'temp_pyro', 'temp_hiseq', 'cros_I')))
+labels = c('VCU', 'UAB_hiseq', 'UAB_pyro', 'PVI', 'AVPVC', 'PHS') #c('PVI', 'VCU', 'AVPVC', 'PHS', 'UAB_hiseq', 'UAB_pyro')
+
 p3 = ggplot() +
-    # geom_point(subset(all_meta, db != 'cros_II'), aes(x = fa1, y = fa2, fill = db),
-    #            pch = 21, size = 1.5, stroke = 0.5, color = '#0F0F19', alpha = 0.8,
-    #            position = position_jitter(seed = 42, height = 3, width = 3)) +
-    geom_point(data = all_meta %>%
-         arrange(db), aes(x = fa1, y = fa2, fill = db),
-               pch = 21, size = 2.8, stroke = 0.5, color = '#0F0F19', alpha = 0.3,
-               position = position_jitter(seed = 42, height = 3, width = 3)) +
-    scale_fill_manual(values = db_colors, name = 'Dataset', labels = c('PVI', 'VCU', 'AVPVC', 'PHS', 'UAB_hiseq', 'UAB_pyro')) +
+  # geom_point(data = all_meta %>%
+  #              arrange(db), aes(x = fa1, y = fa2, fill = db, shape = db),
+  #              size = 2, stroke = 0.2, color = '#0F0F19', alpha = 0.5) +
+  geom_jitter(data = all_meta %>%
+               arrange(db), aes(x = fa1, y = fa2, fill = db, shape = db),
+               size = 4, stroke = 0.2, color = '#0F0F19', alpha = 0.6, height = 20, width = 20) +
+  # position = position_jitter(seed = 42, width = 0.1, height = 0.1)) +
+    scale_fill_manual(values = db_colors, name = 'Dataset', labels = labels) +
           theme(legend.spacing.y = unit(0, "lines"),
           legend.margin = margin(0, 0, 0, 0)) +
+    scale_shape_manual(values = c(21, 22, 22, 23, 24, 25), name = 'Dataset', labels = labels) +
     annotate(geom = 'text', label = 'B', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 14) +
     theme_bw(base_family = 'Gafata') +
     labs(title = '', x = '', y = '') + 
@@ -168,8 +172,7 @@ p3 = ggplot() +
           legend.box.margin = margin(-5,0,0,0),
           legend.position = 'bottom') +
     guides(shape = guide_legend(ncol = 3),
-                 fill = guide_legend(override.aes = list(shape = 21, size = 7), ncol = 2, title.hjust = 1.5, title.vjust = 1))
-# ggsave()
+                 fill = guide_legend(override.aes = list(size = 7), ncol = 2, title.hjust = 1.5, title.vjust = 1))
 print(p3)
 ```
 
@@ -186,7 +189,7 @@ p4 = ggplot(all_meta) +
     geom_point(data = subset(all_meta, root == 'root'), aes(x = fa1, y = fa2, color = root),
                pch = 21, size = 2.5, stroke = 0.00001, alpha = 1, fill = '#23232E', show.legend = TRUE) +
     scale_fill_gradientn(colors = rev(c('#F8F8D6', '#fcfdbf','#fc8961','#b73779', '#51127c', '#000004')), #rev(cols_magma),
-                        values = c(0, 0.35, 0.5, 0.85, 0.96, 1), #c(0, 0.25, 0.5, 0.75, 1), 
+                        values = (c(0, 0.35, 0.5, 0.85, 0.96, 1)), #c(0, 0.25, 0.5, 0.75, 1), 
                         'Pseudo-time') +
     scale_color_manual(values = c("#000000" = 'root', "#0E0E0E" = 'reg'), name = "Root samples") +
     annotate(geom = 'text', label = 'C', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 14) +
@@ -209,11 +212,14 @@ p4 = ggplot(all_meta) +
 # ggsave()
 print(p4)
 ```
+
+
+
 # save
 
 ```{r, message = FALSE, warning = FALSE}
 ggarrange(p2, p3, p4, nrow = 1, ncol = 3, align = "h") %>%
-ggexport(filename = paste0(save_path, 'PCA_umap_02072023.png'), width = 1900, height = 700)
+ggexport(filename = paste0(save_path, 'PCA_umap_31072023.png'), width = 1900, height = 700)
 while (!is.null(dev.list()))  dev.off()
 ```
 

@@ -38,6 +38,7 @@ library(tseries)
 library(seastests)
 library(extrafont)
 library(showtext)
+library(cowplot)
 font_add_google("Gafata")
 showtext_auto()
 ```
@@ -73,7 +74,7 @@ date = '02072023'
 ```{r}
 community_colors = c('I-A' = '#9d0208', 'I-B' = '#dc2f02', 'II' = '#FFD60A', 'III-A' = '#e85d04','III-B' = '#faa307','IV-A' = '#22577a', 'IV-B' = '#5390D9', 'IV-C0' = '#2E214F', 'IV-C1' = '#63479B','IV-C2' = '#8962C7', 'IV-C3' = '#AB7DDA', 'IV-C4' = '#DEC9E9', 'V' = '#E2D6B8')
 
-db_colors = c('temp_pyro' = '#006d77', 'temp_hiseq' = '#83c5be', 'cros_I' = '#edf6f9', 'cros_II' = '#ffddd2', 'carter' = '#E6744A')
+db_colors = c('temp_pyro' = '#F7C59F', 'temp_hiseq' = '#EFEFD0', 'cros_I' = '#89B1D0', 'cros_II' = '#1A659E', 'carter' = '#FA5C23', 'srin' = '#00365F')
 
 coltypes_vec = c("text", "text", "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
                  "text", "text", "numeric", "text", "numeric", "numeric", "numeric", "numeric", "text",
@@ -154,7 +155,8 @@ get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, 
   g = ggplot(df, aes(x = x, y = y)) +
   geom_point(aes(fill = fill_col), shape = 21, alpha = 0.5, size = 2) +
   stat_poly_line(color = 'black', formula = formula) +
-  stat_poly_eq(use_label(stat_label), family = 'Gafata', formula = formula, size = 6) +
+  stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), method = "spearman", label.y.npc="top", label.x.npc = "left", size = 6, familty = 'Gafata') +
+  # stat_poly_eq(use_label(stat_label), family = 'Gafata', formula = formula, size = 6) +
   scale_fill_manual(values = colors_vec, name = legend_name) +
   labs(title = '', x = x_tit, y = y_tit) +
   theme_bw(base_family = 'Gafata') +
@@ -166,18 +168,113 @@ get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, 
   }
   return(g)
 }
-health_meta = temp_meta %>% filter(CST %in% c('I', 'II', 'III', 'V'))
-s = get_bv_to_ps(health_meta, health_meta$mt_pseudotime, health_meta$shannon_index, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2"), community_colors)
 
-nn_s = get_bv_to_ps(nn_temp_meta, nn_temp_meta$mt_pseudotime, nn_temp_meta$shannon_index, nn_temp_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST',community_colors)
+health_meta = temp_meta #temp_meta %>% filter(CST %in% c('I', 'II', 'III', 'V'))
+s = get_bv_to_ps(health_meta, health_meta$mt_pseudotime, health_meta$shannon_index, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors)
+#y ~ poly(x, 3, raw = TRUE)
+nn_s = get_bv_to_ps(nn_temp_meta, nn_temp_meta$mt_pseudotime, nn_temp_meta$shannon_index, nn_temp_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors)
+print(s)
 
-## Save
-# bv_ps = grid.arrange(grobs = list(f_n_ps, f_ph_ps, n_ps, ph_ps), ncol = 2, heights = c(2, 1))
-# ggsave(filename = paste0(save_path, 'shannon_to_ps_23032023.png'), plot = s,
-#        width = 7, height = 3.8, units = "in", limitsize = TRUE)
-# ggsave(filename = paste0(save_path, 'shannon_to_ps_', date, '.png'), plot = s, height = 6, width = 10, units = "in", dpi = 150)
-# ggsave(filename = paste0(save_path, 'nn_shannon_to_ps_', date, '.png'), plot = nn_s, height = 6, width = 10, units = "in", dpi = 150)
+# Save
+ggsave(filename = paste0(save_path, 'shannon_to_ps_', date, '.png'), plot = s, height = 6, width = 10, units = "in", dpi = 150)
+ggsave(filename = paste0(save_path, 'nn_shannon_to_ps_', date, '.png'), plot = nn_s, height = 6, width = 10, units = "in", dpi = 150)
 ```
+
+## ROC statistics preparation
+
+```{r, fig.height=15, fig.width=15, warning=FALSE, message=FALSE}
+get_t_test = function(df, x_colname, alternative){
+  count_df = count(df, !!rlang::sym(x_colname))
+  
+  plot = ggplot(color = 'slategray4') +
+    geom_boxplot(data = df, aes(x = factor(!!rlang::sym(x_colname)), y = mt_pseudotime), lwd = 0.4) +
+    labs(x = str_replace_all(x_colname, '_', ' '), y = 'Pseudo-time') +
+    geom_signif(data = df, aes(x = factor(!!rlang::sym(x_colname)), y = mt_pseudotime), comparisons = list(c("0", "1")), test = "wilcox.test", test.args = list(alternative = alternative, paired = FALSE, var.equal = FALSE),
+              map_signif_level = FALSE, textsize = 10, tip_length = 0) + 
+    # geom_text(data = count_df, aes(y = 1.2, x = factor(!!rlang::sym(x_colname)), label = n), size = 5) +
+    theme_bw(base_family = 'Gafata') +
+    scale_y_continuous(limits = c(0, 1.25)) +
+    theme(text = element_text(size = 20),
+          axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, lineheight = 0.3),
+          axis.title.y = element_text(lineheight = 0.3),
+          strip.text = element_text(size = 20, lineheight = 0.3))
+  
+  return(plot)
+}
+
+n = get_bv_to_ps(health_meta, health_meta$mt_pseudotime, health_meta$nugent, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ x, 'subCST', c("R2", "p.value"), community_colors) + theme(legend.position = 'none')
+p = get_bv_to_ps(health_meta, health_meta$mt_pseudotime, health_meta$ph, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ x, 'subCST', c("R2", "p.value"), community_colors) + theme(legend.position = 'none')
+
+bv = get_t_test(all_meta %>% filter(!is.na(BV_bin)), "BV_bin", "less")
+clue = get_t_test(all_meta %>% filter(!is.na(clue)), "clue", "less")
+whiff = get_t_test(all_meta %>% filter(!is.na(whiff)), "whiff", "less")
+fluid = get_t_test(all_meta %>% filter(!is.na(vag_fluid)), "vag_fluid", "less")
+
+plot_grid(
+  plot_grid(n, p, nrow = 2, ncol = 1),
+  plot_grid(bv, clue, whiff, fluid, nrow = 2),
+  nrow = 2, rel_heights = c(1, 0.5)
+)
+```
+```{r}
+res_df = data.frame(CST = character(0), p_value = numeric(0), n = numeric(0), Method = character(0), Parameter = character(0))
+
+roc_parameters = c('nugent', 'BV_bin', 'ph', 'clue', 'whiff', 'vag_fluid')
+real_names = c('nugent' = 'Nugent', 'BV_bin' = 'Amsels test', 'ph' = 'pH', 'clue' = 'Clue cells', 'whiff' = 'Whiff test', 'vag_fluid' = 'Vaginal fluid')
+
+for (param in roc_parameters){
+  print(paste0('Working on: ', param))
+  if (length(unique(meta %>% pull(param))) > 3){
+    count_df = meta %>%
+               filter(!is.na(!!rlang::sym(param))) %>%
+               count(CST)
+    
+    spearman_df = meta  %>% 
+                  group_by(CST) %>%
+                  summarize(p_value = stats::cor.test(!!rlang::sym(param), mt_pseudotime)$p.value) %>%
+                  left_join(count_df, by = 'CST') %>%
+                  mutate(Method = 'Spearman', Parameter = param)
+    
+    res_df = res_df %>% bind_rows(spearman_df)
+  }
+  
+  else {
+    cst_to_stay = meta %>% 
+                    drop_na(!!rlang::sym(param)) %>%
+                    # mutate(across(c(!!rlang::sym(param)), factor)) %>%
+                    group_by(CST) %>%
+                    count(!!rlang::sym(param), .drop = FALSE) %>%
+                    spread(!!rlang::sym(param), n) %>%
+                    filter_all(all_vars(. >= 1)) %>%
+                    pull(CST)
+    
+    count_df = meta %>%
+               drop_na(!!rlang::sym(param)) %>%
+               count(CST)
+
+    wilcox_df = meta %>% 
+                filter(!is.na(!!rlang::sym(param))) %>%
+                filter(CST %in% cst_to_stay) %>%
+                mutate(across(c(!!rlang::sym(param)), factor)) %>%
+                group_by(CST) %>%
+                summarize(p_value = wilcox.test(mt_pseudotime ~ !!rlang::sym(param))$p.value) %>%
+                left_join(count_df, by = 'CST') %>%
+                mutate(Method = 'Wilcox', Parameter = param)
+    
+    res_df = res_df %>% bind_rows(wilcox_df)
+
+  }
+}
+
+res_df = res_df %>%
+         mutate(Parameter = real_names[as.character(Parameter)]) %>%
+         mutate(FDR = p.adjust (p_value, method = 'BH')) %>%
+         rename('P. value' = 'p_value', 'CST counts' = 'n') 
+
+write_xlsx(res_df, paste0(top_path, "/naive_statistics_res.xlsx"))
+
+```
+
 
 ## Menstruation changes
 
@@ -579,7 +676,7 @@ while (!is.null(dev.list()))  dev.off()
 ## Heatmap
 
 ```{r}
-db_colors = c('UAB_pyro' = '#006d77', 'UAB_hiseq' = '#83c5be', 'VCU' = '#edf6f9', 'AVPVC' = '#ffddd2', 'PVI' = '#E6744A', 'PHS' = '#BF5F3C')
+db_colors = c('UAB_pyro' = '#F7C59F', 'UAB_hiseq' = '#EFEFD0', 'VCU' = '#89B1D0', 'AVPVC' = '#1A659E', 'PVI' = '#FA5C23', 'PHS' = '#00365F')
 plot_heatmap <- function(df, vec_cst, vec_score, n = 25) {
   # Order for colsums
   df = df %>%
@@ -603,19 +700,20 @@ plot_heatmap <- function(df, vec_cst, vec_score, n = 25) {
   col_fun = colorRamp2(seq(0, 100, length = 6), c("#F1F3F3", "#DDFFF7", "#93E1D8", "#FFA69E", "#AA4465", "#462255"))
   # col_fun2 = colorRamp2(seq(min(vec_score), max(vec_score), length = 3), c("#ece2f0", "#a6bddb", "#1c9099"), space = "RGB")
   column_ha = HeatmapAnnotation(subCST = all_df$subCST,
-                                  Score = anno_barplot(all_df$score, baseline = 0, height = unit(0.3, "cm"),
+                                  Score = anno_barplot(all_df$score, baseline = 0, height = unit(0.7, "cm"),
                                                        gp = gpar(col = "#462255"), axis_param = list(at = c(0, 1))),
                                   Dataset = all_df$db,
                                   col = list(subCST = community_colors, Dataset = db_colors),
                                   annotation_legend_param = list(subCST = list(nrow = 1),
-                                                                 Dataset = list(nrow = 1)))
+                                                                 Dataset = list(nrow = 1, legend_width = unit(120, "mm"))),
+                                  simple_anno_size = unit(0.8, "cm"))
   h = Heatmap(plot_mat, name = 'Abundance', col = col_fun, 
               show_column_names = FALSE,
               top_annotation = column_ha, 
               cluster_rows = FALSE, cluster_columns = FALSE,
               # row_names_max_width = max_text_width(rownames(d), 
-              row_names_gp = gpar(fontsize = 10),
-              heatmap_legend_param = list(legend_direction = "horizontal", legend_width = unit(70, "mm")))
+              row_names_gp = gpar(fontsize = 14),
+              heatmap_legend_param = list(legend_direction = "horizontal", legend_width = unit(80, "mm")))
   return(h)
   }
 ```
@@ -646,14 +744,14 @@ h_meta = h_meta[match(df$sample_id, rownames(h_meta)),]
 ```{r}
 h = plot_heatmap(df, h_meta$subCST, h_meta$score)# get_h(h_dft, cst_df$subCST, cst_df$score)
 print(h)
-png(paste(top_path, 'all_df_02072023.png', sep = ''), 
-    width = 650, height = 780)
+png(paste(top_path, 'figures/all_df_02072023.png', sep = ''), 
+    width = 700, height = 780)
 draw(h, padding = unit(c(2, 2, 2, 20), "mm"),
      heatmap_legend_side = "bottom", annotation_legend_side = "bottom", gap = unit(1, "cm"))#, ht_gap = unit(7, "mm"))
 dev.off()
 ```
 
-```{r}
+```{r, fig.height = 4, fig.width=8}
 stat_box_data <- function(y, upper_limit = max(iris$Sepal.Length) * 1.15) {
   return( 
     data.frame(
@@ -662,16 +760,19 @@ stat_box_data <- function(y, upper_limit = max(iris$Sepal.Length) * 1.15) {
     )
   )
 }
+df <- count(meta, subCST)
 v = ggplot(data = meta, aes(x = subCST, y = shannon_index, fill = subCST)) +
     geom_boxplot() +
-    stat_summary(fun.data = stat_box_data, geom = "text", hjust = 0.5, vjust = 0.9, size = 8) + 
+    # stat_summary(fun.data = stat_box_data, geom = "text", hjust = 0.5, vjust = 0.9, size = 8) + 
+    geom_text(data = df, aes(y = 5.2, label = n), size = 5) +
     scale_fill_manual(values = community_colors, name = 'subCST', na.value = "grey31") +
     theme_bw(base_family = 'Gafata') +
     labs(x = 'subCST', y = 'Shannon diversity index') +
-    theme(text = element_text(size = 27)) +
+    theme(text = element_text(size = 18)) +
+    scale_y_continuous(limits = c(0, 5.5)) +
     guides(fill=guide_legend(ncol=2))
-ggsave(paste0(top_path, 'v.png'), height = 7, width = 12, units = "in", dpi = 150)
-# print(v)
+ggsave(paste0(top_path, 'figures/valencia_res_boxplot.png'), height = 4, width = 8, units = "in", dpi = 150)
+print(v)
 ```
 
 ```{r}
