@@ -39,6 +39,8 @@ library(seastests)
 library(extrafont)
 library(showtext)
 library(cowplot)
+library(circlize)
+library(ComplexHeatmap)
 font_add_google("Gafata")
 showtext_auto()
 ```
@@ -128,7 +130,7 @@ get_temp_order = function(meta){
                                 (db == 'temp_pyro') ~ "no_data",
                                 TRUE ~ 'no_data')) %>%
                           mutate(BV_amsel_bin = na_if(BV_amsel_bin, "no_data")) %>%
-                          mutate_at(c('menst', 'amsel_bin', 'BV_medication'), ~na_if(., 0))
+                          mutate_at(c('menst', 'BV_bin', 'BV_medication'), ~na_if(., 0))
 }
 
 all_meta = get_meta_order(meta)
@@ -292,7 +294,7 @@ stat_box_data <- function(y, upper_limit = max(iris$Sepal.Length) * 1.15) {
 
 tmp = nn_menst_df %>%
             mutate(type = 'Manifold\nsamples') %>%
-            bind_rows(menst_df %>% mutate(type = 'Excluded\nsamples')) %>%
+            bind_rows(menst_df %>% mutate(type = 'Held-out\nsamples')) %>%
             drop_na(ps_diff_abs) %>%
             mutate_each_(funs(factor(.)), c('sum_all')) %>%
             mutate_each_(funs(as.numeric(.)), c('ps_diff_abs', 'ps_diff')) 
@@ -300,22 +302,23 @@ tmp = nn_menst_df %>%
 m = ggplot(data = tmp, 
            aes(x = factor(sum_all), y = log(ps_diff)), color = 'slategray4') +
   geom_boxplot(lwd = 0.4) +
-  labs(x = '', y = "Pseudo-time differentiation (log)") +
+  labs(x = '', y = "Pseudo-time\ndifferentiation (log)") +
   # scale_y_continuous(limits = c(0, 1)) +
   scale_x_discrete(labels = c('0' = 'Non-\nmenstruation', '1' = 'Menstruation\n +- 2 days')) +
+  scale_y_continuous(limits = c(-15, 5)) +
   geom_signif(comparisons = list(c("0", "1")), test = "wilcox.test", test.args=list(alternative = "less", paired = FALSE, var.equal = FALSE),
-              map_signif_level = TRUE, textsize = 20, tip_length = 0) + #, family = 'Gafata'
+              map_signif_level = TRUE, textsize = 8, tip_length = 0) + #, family = 'Gafata'
   # stat_summary(fun.data = stat_box_data, geom = "text", fun.y = mean,
   #                 family = 'Gafata', hjust = 0.5, vjust = 0.9, size = 5) +
-  facet_wrap(~factor(type, levels=c('Manifold\nsamples', 'Excluded\nsamples')), nrow = 1, ncol = 2) +
+  facet_wrap(~factor(type, levels=c('Manifold\nsamples', 'Held-out\nsamples')), nrow = 1, ncol = 2) +
   theme_bw(base_family = 'Gafata') +
   theme(text = element_text(size = 20),
         axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, lineheight = 0.3),
         axis.title.y = element_text(lineheight = 0.3),
-        strip.text = element_text(size = 20, lineheight = 0.3))
+        strip.text = element_text(size = 25, lineheight = 0.3))
 print(m)
-# ggsave(filename = paste0(save_path, 'menst_delta_17072023.png'), plot = m,
-#        width = 8, height = 4.5, units = "in", limitsize = TRUE)
+ggsave(filename = paste0(save_path, 'menst_delta_02072023.png'), plot = m,
+       width = 3, height = 2, units = "in", limitsize = TRUE)
 ```
 
 ## Metabolites differences
@@ -401,7 +404,7 @@ get_ps_to_time = function(df, leg_pos, points_size, scale_menst_size, text_size 
     geom_line(data = df, aes(x = time, y = mt_pseudotime), colour = 'slategray4', alpha = 0.6, size = 0.5) +
     geom_point(data = df, aes(x = time, y = mt_pseudotime, colour = subCST), alpha = 0.6, size = points_size, pch = 19) + 
     geom_point(data = df, aes(x = time, y = -0.04, size = factor(menst)), colour = 'red', alpha = 0.9, pch = 2) +
-    geom_point(data = df, aes(x = time, y = 1.05, size = factor(amsel_bin)), colour = 'darkmagenta', alpha = 0.9, pch = 5) +
+    geom_point(data = df, aes(x = time, y = 1.05, size = factor(BV_bin)), colour = 'darkmagenta', alpha = 0.9, pch = 5) +
     geom_point(data = df, aes(x = time, y = 1.05, size = factor(BV_medication)), colour = 'darkslategray4', alpha = 0.9, pch = 5) +
     scale_colour_manual(values = community_colors) +
     scale_y_continuous(limits = c(-0.05, 1.1), breaks = seq(0.0, 1, 0.5)) +
@@ -444,7 +447,7 @@ specific_sub_df$lab <- with(specific_sub_df, ifelse(subjectID == 'UAB103', 'D',
 
 prog_df = get_ps_to_time(specific_sub_df, 'bottom', 3, c(1, 3), 30)
 prog_df = prog_df + 
-  geom_text(data = specific_sub_df, label = specific_sub_df$lab, x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5, family = 'Gafata', size = 7) +
+  # geom_text(data = specific_sub_df, label = specific_sub_df$lab, x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5, family = 'Gafata', size = 7) +
   facet_wrap(~specific_sub_df$subjectID, nrow = 1) +
   theme(strip.background = element_blank(),
   axis.text.y = element_text(angle = 90, vjust = 0.5, hjust = 0.5),
@@ -521,7 +524,7 @@ med_meta = med_meta %>% mutate_at(c('BV_medication'), as.character) %>%
            mutate(BV_medication = recode(BV_medication, "0" = "No", "1" = "Yes"))
 label_med <- setNames(as.character(med_meta$subjectID), med_meta$group_name)
 
-m = get_bv_to_ps(med_meta, med_meta$time, med_meta$mt_pseudotime, med_meta$BV_medication, 'Time', 'Pseudo-time', y ~ x, facet = FALSE, 'Medication', c("eq"), c("No" = "blue", "Yes" = "red")) +
+m = get_bv_to_ps(med_meta, med_meta$time, med_meta$mt_pseudotime, med_meta$BV_medication, 'Time', 'Pseudo-time', y ~ x, facet = FALSE, 'Medication', c("eq"), c("No" = "#2E9B8F", "Yes" = "#E76F51")) +
     facet_wrap(~med_meta$group_name, nrow = 2, scales = "free", labeller = as_labeller(label_med))
     
 
@@ -676,6 +679,7 @@ while (!is.null(dev.list()))  dev.off()
 ## Heatmap
 
 ```{r}
+db_colors = c('UAB_pyro' = '#F7C59F', 'UAB_hiseq' = '#EFEFD0', 'VCU' = '#89B1D0', 'AVPVC' = '#1A659E', 'PVI' = '#FA5C23', 'PHS' = '#00365F')
 db_colors = c('UAB_pyro' = '#F7C59F', 'UAB_hiseq' = '#EFEFD0', 'VCU' = '#89B1D0', 'AVPVC' = '#1A659E', 'PVI' = '#FA5C23', 'PHS' = '#00365F')
 plot_heatmap <- function(df, vec_cst, vec_score, n = 25) {
   # Order for colsums
