@@ -153,12 +153,12 @@ levels(nn_temp_meta$subjectID) = levels(temp_meta$subjectID)
 ## Shannon diversity
 
 ```{r Shannon to ps}
-get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, stat_label, colors_vec = community_colors, facet = TRUE){
+get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, stat_label, point_size = 2, colors_vec = community_colors, facet = TRUE){
   g = ggplot(df, aes(x = x, y = y)) +
-  geom_point(aes(fill = fill_col), shape = 21, alpha = 0.5, size = 2) +
-  stat_poly_line(color = 'black', formula = formula) +
-  stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), method = "spearman", label.y.npc="top", label.x.npc = "left", size = 6, familty = 'Gafata') +
-  # stat_poly_eq(use_label(stat_label), family = 'Gafata', formula = formula, size = 6) +
+  geom_point(aes(fill = fill_col), shape = 21, alpha = 0.5, size = point_size) +
+  stat_poly_line(color = 'black', formula = formula, fill = '#E1DEDC') +
+  # stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), method = "spearman", label.y.npc="top", label.x.npc = "left", size = 6, familty = 'Gafata') +
+  stat_poly_eq(use_label(stat_label), family = 'Gafata', formula = formula, size = 6) +
   scale_fill_manual(values = colors_vec, name = legend_name) +
   labs(title = '', x = x_tit, y = y_tit) +
   theme_bw(base_family = 'Gafata') +
@@ -519,16 +519,17 @@ ggsave(filename = paste0(save_path, 'nn_UMAP_subjectID_02072023.png'), plot = nn
 ## BV medications
 
 ```{r, message=FALSE, warning=FALSE}
-med_meta = read_excel(paste0(top_path, "after_medication_ps.xlsx"), sheet = 'meta', col_names = TRUE) %>% select(-c("...1"))
+med_meta = read_excel(paste0(top_path, "after_medication_ps_15082023.xlsx"), sheet = 'meta', col_names = TRUE) %>% select(-c("...1"))
 med_meta = med_meta %>% mutate_at(c('BV_medication'), as.character) %>% 
            mutate(BV_medication = recode(BV_medication, "0" = "No", "1" = "Yes"))
 label_med <- setNames(as.character(med_meta$subjectID), med_meta$group_name)
 
-m = get_bv_to_ps(med_meta, med_meta$time, med_meta$mt_pseudotime, med_meta$BV_medication, 'Time', 'Pseudo-time', y ~ x, facet = FALSE, 'Medication', c("eq"), c("No" = "#2E9B8F", "Yes" = "#E76F51")) +
-    facet_wrap(~med_meta$group_name, nrow = 2, scales = "free", labeller = as_labeller(label_med))
+m = get_bv_to_ps(med_meta, med_meta$time, med_meta$mt_pseudotime, med_meta$BV_medication, 'Time (days)', 'Pseudo-time', y ~ x, point_size = 4, facet = FALSE, 'Medication', c("eq"), c("No" = "#2E9B8F", "Yes" = "#E76F51")) +
+    facet_wrap(~med_meta$group_name, nrow = 3, scales = "free", labeller = as_labeller(label_med)) +
+    theme(legend.position = 'bottom')
     
 
-ggsave(filename = paste0(save_path, 'ps_after_med_', date, '.png'), plot = m, height = 7, width = 12, units = "in", dpi = 150)
+ggsave(filename = paste0(save_path, 'ps_after_med_', date, '.png'), plot = m, height = 8, width = 13, units = "in", dpi = 150)
 
 ```
 
