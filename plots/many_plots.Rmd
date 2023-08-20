@@ -48,7 +48,7 @@ showtext_auto()
 ## Variables
 
 ```{r variables}
-top_path = '../../Data/Serrano_Ravel13_Ravel11_Carter22/ps_res/'
+top_path = '../Data/'
 
 file_name = paste0(top_path, 'ps_res_PCA_umap_02072023.xlsx')
 
@@ -503,17 +503,30 @@ nn_temp_meta = nn_temp_meta %>%
 
 for (i in  1:length(subjects_lst)){
   sub = subjects_lst[i]
-  plot = get_umap_subject(all_meta, nn_temp_meta, sub, 0.7, 5, 60, 0.8, 0)
+  plot = get_umap_subject(all_meta, nn_temp_meta, sub, 0.7, 5, 100, 0.8, 0)
   plots_lst[[i]] = plot
 }
 
-nn_p = grid.arrange(grobs = plots_lst, ncol = 4)
-nn_ps_plot = get_ps_to_time(nn_temp_meta, 'right', 6, c(2, 5), 60) +
-          facet_wrap(~nn_temp_meta$subjectID, ncol = 4)
+pall = plot_grid(
+  plotlist = plots_lst,
+  align = 'vh',
+  # hjust = -1,
+  nrow = 3
+)
 
-nn_pall = grid.arrange(arrangeGrob(nn_p, nn_ps_plot, ncol = 2, widths = c(1.5, 1)))
-ggsave(filename = paste0(save_path, 'nn_UMAP_subjectID_02072023.png'), plot = nn_pall,
-       width = 42, height = 22, units = "in", limitsize = FALSE)
+nn_ps_plot = get_ps_to_time(nn_temp_meta, 'right', 6, c(2, 5), 100) +
+           facet_wrap(~nn_temp_meta$subjectID, ncol = 4)
+both = plot_grid(pall, nn_ps_plot, nrow = 1, labels = c('a', 'b'), label_size = 150)
+ggsave2(
+  paste0(save_path, "supp_figure_s8.png"),
+  plot = both,
+  device = NULL,
+  path = NULL,
+  scale = 1,
+  width = 30,
+  height = 15,
+  units = c("in"),
+  dpi = 300)
 ```
 
 ## BV medications
@@ -709,16 +722,29 @@ plot_heatmap <- function(df, vec_cst, vec_score, n = 25) {
                                                        gp = gpar(col = "#462255"), axis_param = list(at = c(0, 1))),
                                   Dataset = all_df$db,
                                   col = list(subCST = community_colors, Dataset = db_colors),
-                                  annotation_legend_param = list(subCST = list(nrow = 1),
-                                                                 Dataset = list(nrow = 1, legend_width = unit(120, "mm"))),
-                                  simple_anno_size = unit(0.8, "cm"))
+                                  annotation_legend_param = list(subCST = list(nrow = 3, 
+                                                                               legend_width = unit(20, "cm"),
+                                                                               legend_height = unit(5, "cm"),
+                                                                               grid_width = unit(5, "mm"),
+                                                                               legend_gp = gpar(fontsize = 15),                                                                                                labels_gp = gpar(fontsize = 13),
+                                                                               title_gp  = gpar(fontsize = 15)),
+                                                                 Dataset = list(nrow = 3, 
+                                                                                legend_width = unit(20, "cm"),
+                                                                                legend_height = unit(5, "cm"),
+                                                                                grid_width = unit(5, "mm"),
+                                                                                legend_gp = gpar(fontsize = 15), 
+                                                                                labels_gp = gpar(fontsize = 13),
+                                                                                title_gp  = gpar(fontsize = 15))),
+                                                                 
+                                  simple_anno_size = unit(0.8, "cm"),
+                                  annotation_name_gp = gpar(fontsize = 20, fontface = "italic"))
   h = Heatmap(plot_mat, name = 'Abundance', col = col_fun, 
               show_column_names = FALSE,
               top_annotation = column_ha, 
               cluster_rows = FALSE, cluster_columns = FALSE,
-              # row_names_max_width = max_text_width(rownames(d), 
-              row_names_gp = gpar(fontsize = 14),
-              heatmap_legend_param = list(legend_direction = "horizontal", legend_width = unit(80, "mm")))
+              row_names_gp = gpar(fontsize = 18),
+              row_names_max_width = unit(12, "cm"),
+              heatmap_legend_param = list(legend_direction = "horizontal", legend_width = unit(60, "mm"), legend_height = unit(50, "mm"), labels_gp  = gpar(fontsize = 12), title_gp  = gpar(fontsize = 14)))
   return(h)
   }
 ```
@@ -750,32 +776,27 @@ h_meta = h_meta[match(df$sample_id, rownames(h_meta)),]
 h = plot_heatmap(df, h_meta$subCST, h_meta$score)# get_h(h_dft, cst_df$subCST, cst_df$score)
 print(h)
 png(paste(top_path, 'figures/all_df_02072023.png', sep = ''), 
-    width = 700, height = 780)
+    width = 720, height = 800)
 draw(h, padding = unit(c(2, 2, 2, 20), "mm"),
      heatmap_legend_side = "bottom", annotation_legend_side = "bottom", gap = unit(1, "cm"))#, ht_gap = unit(7, "mm"))
 dev.off()
 ```
 
 ```{r, fig.height = 4, fig.width=8}
-stat_box_data <- function(y, upper_limit = max(iris$Sepal.Length) * 1.15) {
-  return( 
-    data.frame(
-      y = 0.95 * upper_limit,
-      label = paste(length(y), '\n')
-    )
-  )
-}
-df <- count(meta, subCST)
-v = ggplot(data = meta, aes(x = subCST, y = shannon_index, fill = subCST)) +
+cst_colors =  c('I' = '#9d0208', 'II' = '#FFD60A', 'III' = '#e85d04','IV-A' = '#22577a', 'IV-B' = '#5390D9', 'IV-C' = '#2E214F', 'V' = '#E2D6B8')
+
+df <- count(meta, CST)
+v = ggplot(data = meta, aes(x = CST, y = shannon_index, fill = CST)) +
     geom_boxplot() +
     # stat_summary(fun.data = stat_box_data, geom = "text", hjust = 0.5, vjust = 0.9, size = 8) + 
     geom_text(data = df, aes(y = 5.2, label = n), size = 5) +
-    scale_fill_manual(values = community_colors, name = 'subCST', na.value = "grey31") +
+    scale_fill_manual(values = cst_colors, name = 'CST', na.value = "grey31") +
     theme_bw(base_family = 'Gafata') +
     labs(x = 'subCST', y = 'Shannon diversity index') +
-    theme(text = element_text(size = 18)) +
+    theme(text = element_text(size = 25)) +
     scale_y_continuous(limits = c(0, 5.5)) +
-    guides(fill=guide_legend(ncol=2))
+    theme(legend.position = 'bottom') +
+    guides(fill=guide_legend(nrow=1))
 ggsave(paste0(top_path, 'figures/valencia_res_boxplot.png'), height = 4, width = 8, units = "in", dpi = 150)
 print(v)
 ```

@@ -33,19 +33,50 @@ showtext_auto()
 ```
 
 ```{r}
-top_path = '../../Data/Serrano_Ravel13_Ravel11_Carter22/ps_res/'
+top_path = '../Data/'
 
-roc_file = paste0(top_path, 'roc_res_PCA_umap_02072023.xlsx')
-nn_roc_file = paste0(top_path, 'nn_roc_res_PCA_umap_02072023.xlsx')
+file_name = paste0(top_path, 'ps_res_PCA_umap_02072023.xlsx')
+nn_file_name = paste0(top_path, 'nn_res_PCA_umap_02072023.xlsx')
+
+sheet_abun = 'abundance'
+sheet_meta = 'meta'
+sheet_umap = 'umap'
+
+roc_file = paste0(top_path, 'roc_res_PCA_umap_30072023.xlsx')
+nn_roc_file = paste0(top_path, 'nn_roc_res_PCA_umap_30072023.xlsx')
 
 save_path = paste0(top_path, 'figures/')
 
 date = '02072023'
 ```
 
+```{r}
+community_colors = c('I-A' = '#9d0208', 'I-B' = '#dc2f02', 'II' = '#FFD60A', 'III-A' = '#e85d04','III-B' = '#faa307','IV-A' = '#22577a', 'IV-B' = '#5390D9', 'IV-C0' = '#2E214F', 'IV-C1' = '#63479B','IV-C2' = '#8962C7', 'IV-C3' = '#AB7DDA', 'IV-C4' = '#DEC9E9', 'V' = '#E2D6B8')
+
+db_colors = c('temp_pyro' = '#F7C59F', 'temp_hiseq' = '#EFEFD0', 'cros_I' = '#89B1D0', 'cros_II' = '#1A659E', 'carter' = '#FA5C23', 'srin' = '#00365F')
+
+coltypes_vec = c("text", "text", "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+                 "text", "text", "numeric", "text", "numeric", "numeric", "numeric", "numeric", "text",
+                 "text", "numeric", "numeric", "numeric", "text", "numeric", "numeric", "numeric", "numeric", 
+                 "text", "numeric", "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric")
+```
+
+```{r}
+get_data1 = function(path, sheet, coltypes_vec){
+  df = read_excel(path, sheet = sheet, col_names = TRUE, col_types = coltypes_vec)
+  df = as.data.frame(df)
+  
+  if("...1" %in% colnames(df)){
+    names(df)[names(df) == '...1'] <- 'sampleID'
+  }
+  
+  rownames(df) = df$sampleID
+  df = subset(df, select = -c(sampleID))
+}
+```
 
 ```{r plot function}
-get_data = function(path, sheet){
+get_data2 = function(path, sheet){
   df = read_excel(path, sheet = sheet, col_names = TRUE)
   df = as.data.frame(df)
   
@@ -63,24 +94,33 @@ get_data = function(path, sheet){
 # Load data
 
 ```{r, message = FALSE, warning = FALSE}
-nug = get_data(roc_file, 'nugent_bin')
-ph = get_data(roc_file, 'ph_bin')
-amsel = get_data(roc_file, 'BV_amsel_bin')
-whiff_df = get_data(roc_file, 'whiff')
-fluid_df = get_data(roc_file, 'vag_fluid')
-clue_df = get_data(roc_file, 'clue')
+meta = get_data1(file_name, sheet_meta, coltypes_vec)
+nn_meta = get_data1(nn_file_name, sheet_meta, append(coltypes_vec, c("text", "text")))
 
-nn_nug = get_data(nn_roc_file, 'nugent_bin')
-nn_ph = get_data(nn_roc_file, 'ph_bin')
-nn_amsel = get_data(nn_roc_file, 'BV_amsel_bin')
+nug = get_data2(roc_file, 'nugent_bin')
+ph = get_data2(roc_file, 'ph_bin')
+amsel = get_data2(roc_file, 'BV_amsel_bin')
+whiff_df = get_data2(roc_file, 'whiff')
+fluid_df = get_data2(roc_file, 'vag_fluid')
+clue_df = get_data2(roc_file, 'clue')
+
+nn_nug = get_data2(nn_roc_file, 'nugent_bin')
+nn_ph = get_data2(nn_roc_file, 'ph_bin')
+nn_amsel = get_data2(nn_roc_file, 'BV_amsel_bin')
 # nn_whiff_df = get_data(nn_roc_file, 'whiff')
 # nn_fluid_df = get_data(nn_roc_file, 'fluid')
 # nn_clue_df = get_data(nn_roc_file, 'clue')
 
 ```
 
-
 # Original manifold
+
+```{r}
+roc_line_width = 1
+txt_size = 35
+auc_txt_size = 10
+```
+
 
 ### nugent
 
@@ -92,16 +132,17 @@ auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
 g1 = ggplot() +
   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
   scale_colour_viridis_d(option = "mako") +
-  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
-  labs(title = 'High Nugent score', x = '', y = 'True Positive Rate') +
-  annotate(geom = 'text', label = 'A', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = roc_line_width, color = 'gray19') +
+  labs(title = 'Nugent score', x = '', y = 'True Positive Rate') +
+  # annotate(geom = 'text', label = 'A', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = auc_txt_size, family = 'Gafata') +
   theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
+  theme(text = element_text(size = txt_size),
         legend.position = 'none',
         axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-print(g1)
+        axis.ticks.x = element_blank(),
+        plot.margin=margin(l=-0.8,unit="cm"))
+# print(g1)
 ```
 
 ### amsel
@@ -114,16 +155,17 @@ auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
 g2 = ggplot() +
   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
   scale_colour_viridis_d(option = "mako") +
-  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = roc_line_width, color = 'gray19') +
   labs(title = "Amsel's test", x = '', y = '') +
-  annotate(geom = 'text', label = 'B', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  # annotate(geom = 'text', label = 'B', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = auc_txt_size, family = 'Gafata') +
   theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
+  theme(text = element_text(size = txt_size),
         legend.position = 'none',
         axis.text = element_blank(),
-        axis.ticks = element_blank())
-print(g2)
+        axis.ticks = element_blank(),
+        plot.margin=margin(l=-0.8,unit="cm"))
+# print(g2)
 ```
 
 ### ph
@@ -136,16 +178,17 @@ auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
 g3 = ggplot() +
   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
   scale_colour_viridis_d(option = "mako") +
-  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = roc_line_width, color = 'gray19') +
   labs(title = 'Elevated pH', x = '', y = '') +
-  annotate(geom = 'text', label = 'C', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  # annotate(geom = 'text', label = 'C', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = auc_txt_size, family = 'Gafata') +
   theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
+  theme(text = element_text(size = txt_size),
         legend.position = 'none',
         axis.text = element_blank(),
-        axis.ticks = element_blank())
-print(g3)
+        axis.ticks = element_blank(),
+        plot.margin=margin(l=-0.8,unit="cm"))
+# print(g3)
 ```
 
 ### whiff
@@ -158,16 +201,17 @@ auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
 g4 = ggplot() +
   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
   scale_colour_viridis_d(option = "mako") +
-  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = roc_line_width, color = 'gray19') +
   labs(title = 'Whiff test', x = '', y = 'True Positive Rate') +
-  annotate(geom = 'text', label = 'D', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  # annotate(geom = 'text', label = 'D', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = auc_txt_size, family = 'Gafata') +
   theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
+  theme(text = element_text(size = txt_size),
         legend.position = 'none',
         axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-print(g4)
+        axis.ticks.x = element_blank(),
+        plot.margin=margin(l=-0.8,unit="cm"))
+# print(g4)
 ```
 
 ### clue
@@ -180,16 +224,17 @@ auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
 g5 = ggplot() +
   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
   scale_colour_viridis_d(option = "mako") +
-  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = roc_line_width, color = 'gray19') +
   labs(title = 'Clue cells', x = '', y = '') +
-  annotate(geom = 'text', label = 'E', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  # annotate(geom = 'text', label = 'E', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = auc_txt_size, family = 'Gafata') +
   theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
+  theme(text = element_text(size = txt_size),
         legend.position = 'none',
         axis.text = element_blank(),
-        axis.ticks = element_blank())
-print(g5)
+        axis.ticks = element_blank(),
+        plot.margin=margin(l=-0.8,unit="cm"))
+# print(g5)
 ```
 
 ### fluid
@@ -202,16 +247,17 @@ auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
 g6 = ggplot() +
   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
   scale_colour_viridis_d(option = "mako") +
-  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = roc_line_width, color = 'gray19') +
   labs(title = 'Vaginal fluid', x = '', y = '') +
-  annotate(geom = 'text', label = 'F', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  # annotate(geom = 'text', label = 'F', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = auc_txt_size, family = 'Gafata') +
   theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
+  theme(text = element_text(size = txt_size),
         legend.position = 'none',
         axis.text = element_blank(),
-        axis.ticks = element_blank())
-print(g6)
+        axis.ticks = element_blank(),
+        plot.margin=margin(l=-0.8,unit="cm"))
+# print(g6)
 ```
 
 # nn plots
@@ -226,14 +272,15 @@ auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
 g7 = ggplot() +
   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
   scale_colour_viridis_d(option = "rocket") +
-  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
-  labs(title = 'High Nugent score (NN)', x = 'False Positive Rate', y = 'True Positive Rate') +
-  annotate(geom = 'text', label = 'G', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = roc_line_width, color = 'gray19') +
+  labs(title = 'Nugent score (HO)', x = 'False Positive Rate', y = 'True Positive Rate') +
+  # annotate(geom = 'text', label = 'G', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = auc_txt_size, family = 'Gafata') +
   theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
-        legend.position = 'none')
-print(g7)
+  theme(text = element_text(size = txt_size),
+        legend.position = 'none',
+        plot.margin=margin(l=-0.8,unit="cm"))
+# print(g7)
 ```
 
 ### amsel
@@ -246,16 +293,17 @@ auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
 g8 = ggplot() +
   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
   scale_colour_viridis_d(option = "rocket") +
-  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
-  labs(title = "Amsel's test (NN)", x = 'False Positive Rate', y = '') +
-  annotate(geom = 'text', label = 'H', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = roc_line_width, color = 'gray19') +
+  labs(title = "Amsel's test (HO)", x = 'False Positive Rate', y = '') +
+  # annotate(geom = 'text', label = 'H', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = auc_txt_size, family = 'Gafata') +
   theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
+  theme(text = element_text(size = txt_size),
         legend.position = 'none',
         axis.text.y = element_blank(),
-        axis.ticks.y = element_blank())
-print(g8)
+        axis.ticks.y = element_blank(),
+        plot.margin=margin(l=-0.8,unit="cm"))
+# print(g8)
 ```
 
 ### ph
@@ -268,84 +316,78 @@ auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
 g9 = ggplot() +
   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
   scale_colour_viridis_d(option = "rocket") +
-  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
-  labs(title = 'Elevated pH (NN)', x = 'False Positive Rate', y = '') +
-  annotate(geom = 'text', label = 'I', x = -Inf, y = Inf, hjust = -2.5, vjust = 1.5, family = 'Gafata', size = 7) +
-  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
+  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = roc_line_width, color = 'gray19') +
+  labs(title = 'Elevated pH (HO)', x = 'False Positive Rate', y = '') +
+  # annotate(geom = 'text', label = 'I', x = -Inf, y = Inf, hjust = -2.5, vjust = 1.5, family = 'Gafata', size = 7) +
+  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = auc_txt_size, family = 'Gafata') +
   theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
+  theme(text = element_text(size = txt_size),
         legend.position = 'none',
         axis.text.y = element_blank(),
-        axis.ticks.y = element_blank())
-print(g9)
+        axis.ticks.y = element_blank(),
+        plot.margin = margin(l = 0.1, b = 0.2, r = 0.1, t = 0.01, unit="cm"))
+# print(g9)
 ```
 
-### whiff
+## Shannon diversity
 
-```{r, fig.height = 3, fig.width = 4}
-# cur_df = nn_whiff_df
-# last = head(unique(cur_df$shuff_num), n = 1)
-# auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
-# # getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
-# g10 = ggplot() +
-#   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
-#   scale_colour_viridis_d(option = "rocket") +
-#   geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
-#   labs(title = 'Whiff test', x = '', y = 'True Positive Rate') +
-#   annotate(geom = 'text', label = 'D', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-#   annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
-#   theme_bw(base_family = 'Gafata') +
-#   theme(text = element_text(size = 20),
-#         legend.position = 'none')
-# print(g10)
+```{r Shannon to ps}
+get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, stat_label, colors_vec = community_colors, facet = TRUE){
+  g = ggplot(df, aes(x = x, y = y)) +
+  geom_point(aes(fill = fill_col), shape = 21, alpha = 0.5, size = 2) +
+  stat_poly_line(color = 'black', formula = formula, fill = '#E1DEDC') +
+  stat_poly_eq(use_label(stat_label), family = 'Gafata', formula = formula, size = auc_txt_size) +
+  scale_fill_manual(values = colors_vec, name = legend_name) +
+  labs(title = '', x = x_tit, y = y_tit) +
+  theme_bw(base_family = 'Gafata') +
+  theme(text = element_text(size = txt_size),
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
+        axis.title.x = element_text(margin = margin(t = 1)),#margin(t = -35)),
+        strip.text.x = element_text(size = 40, margin = margin(2, 2, 2, 2)))#margin(-8, -8, -8, -8))) 
+
+  
+  if (facet){
+    g = g + facet_wrap(~df$CST, nrow = 1, scales = "free_x")
+  }
+  return(g)
+}
+
+health_meta = meta %>% filter(CST %in% c('I', 'II', 'III', 'V'))
+nn_health_meta = nn_meta %>% filter(CST %in% c('I', 'III'))
+# s = get_bv_to_ps(health_meta, health_meta$mt_pseudotime, health_meta$shannon_index, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors) +
+#   theme(legend.position = 'none')
+# y ~ poly(x, 3, raw = TRUE)
+nn_s = get_bv_to_ps(nn_health_meta, nn_health_meta$mt_pseudotime, nn_health_meta$shannon_index, nn_health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors) +
+   theme(legend.position = 'none')
+# print(s)
+
+# Save
+# ggsave(filename = paste0(save_path, 'shannon_to_ps_', date, '.png'), plot = s, height = 6, width = 10, units = "in", dpi = 150)
+ggsave(filename = paste0(save_path, 'nn_shannon_to_ps_', date, '.png'), plot = nn_s, height = 2, width = 4, units = "in", dpi = 300)
 ```
-
-### clue
-
-```{r, fig.height = 3, fig.width = 4}
-# cur_df = nn_clue_df
-# last = head(unique(cur_df$shuff_num), n = 1)
-# auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
-# # getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
-# g11 = ggplot() +
-#   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
-#   scale_colour_viridis_d(option = "rocket") +
-#   geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
-#   labs(title = 'Clue cells', x = '', y = 'True Positive Rate') +
-#   annotate(geom = 'text', label = 'D', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-#   annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
-#   theme_bw(base_family = 'Gafata') +
-#   theme(text = element_text(size = 20),
-#         legend.position = 'none',
-#         axis.text.y = element_blank(),
-#         axis.ticks.y = element_blank())
-# print(g11)
-```
-
-### fluid
-
-```{r, fig.height = 3, fig.width = 4}
-# cur_df = nn_fluid_df
-# last = head(unique(cur_df$shuff_num), n = 1)
-# auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
-# # getPalette = colorRampPalette(brewer.pal(9, "BrBG"))
-# g12 = ggplot() +
-#   geom_line(data = subset(cur_df, shuff_num != last), aes(x = fpr, y = tpr, color = shuff_num, group = shuff_num), size = 0.2) +
-#   scale_colour_viridis_d(option = "rocket") +
-#   geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 2, color = 'gray19') +
-#   labs(title = 'Vaginal fluid', x = '', y = '') +
-#   annotate(geom = 'text', label = 'F', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-#   annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
-#   theme_bw(base_family = 'Gafata') +
-#   theme(text = element_text(size = 20),
-#         legend.position = 'none',
-#         axis.text.y = element_blank(),
-#         axis.ticks.y = element_blank())
-# print(g12)
-```
-
 
 ## save
+
+```{r}
+pall = plot_grid(
+  g1, g2, g3, g4, g5, g6, g7, g8, g9,
+  align = 'vh',
+  # hjust = -1,
+  nrow = 3
+)
+both = plot_grid(s, pall, nrow = 2, rel_heights = c(0.4, 1), labels = c('a', 'b'), label_size = 50)
+ggsave2(
+  paste0(save_path, "figure_3.png"),
+  plot = both,
+  device = NULL,
+  path = NULL,
+  scale = 1,
+  width = 6,
+  height = 8.5,
+  units = c("in"),
+  dpi = 300)
+```
+
 
 ```{r}
 # ggarrange(g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, g12, nrow = 4, ncol = 3) %>%
