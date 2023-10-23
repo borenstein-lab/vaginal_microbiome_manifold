@@ -21,21 +21,14 @@ library(ggpubr)
 library(ggpmisc)
 library(scales)
 library(readxl)
-library(reshape2)
 library(dplyr)
 library(tidyr)
 library(stringr)
 library(writexl)
 library(ggpubr)
-library(gridExtra)
-library(grid)
-library(gtools)
 library(RColorBrewer)
 library(xlsx)
 library(tibble)
-library(umap)
-library(tseries)
-library(seastests)
 library(extrafont)
 library(showtext)
 library(cowplot)
@@ -56,14 +49,14 @@ sheet_abun = 'abundance'
 sheet_meta = 'meta'
 sheet_umap = 'umap'
 
-menst_file = paste0(top_path, 'menst_statistics_res_PCA_umap_02072023.xlsx')
+menst_file = paste0(top_path, 'menst_statistics_res_PCA_umap_14102023.xlsx')
 
 bactria_file_name = paste0(top_path, 'branch_melt_df_02072023.xlsx')
 sheet_melt_df = 'melt_branch_df'
 
 
 nn_file_name = paste0(top_path, 'nn_res_PCA_umap_02072023.xlsx')
-nn_menst_file = paste0(top_path, 'nn_menst_statistics_res_PCA_umap_02072023.xlsx')
+nn_menst_file = paste0(top_path, 'nn_menst_statistics_res_PCA_umap_14102023.xlsx')
 
 
 save_path = paste0(top_path, 'figures/')
@@ -104,10 +97,10 @@ get_data = function(path, sheet, coltypes_vec){
 meta = get_data(file_name, sheet_meta, coltypes_vec)
 umap = get_data(file_name, sheet_umap, c("text", "numeric", "numeric"))
 
-menst_df = get_data(menst_file, sheet_meta, c('text', 'text', 'text', 'text', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'text', 'numeric'))
+menst_df = get_data(menst_file, sheet_meta, c('text', 'text', 'text', 'text', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'text', 'numeric'))
 
 nn_meta = get_data(nn_file_name, sheet_meta, append(coltypes_vec, c("text", "text")))
-nn_menst_df = get_data(nn_menst_file, sheet_meta, c('text', 'text', 'text', 'text', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'text', 'numeric'))
+nn_menst_df = get_data(nn_menst_file, sheet_meta, c('text', 'text', 'text', 'text', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'text', 'numeric'))
 ```
 
 ## Order data
@@ -153,11 +146,22 @@ levels(nn_temp_meta$subjectID) = levels(temp_meta$subjectID)
 ## Shannon diversity
 
 ```{r Shannon to ps}
-get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, stat_label, point_size = 2, colors_vec = community_colors, facet = TRUE){
+df = db_meta
+x = df$mt_pseudotime
+y = df$shannon_index
+fill_col = df$subCST
+x_tit = ""
+y_tit = ""
+formula = y ~ poly(x, 3, raw = TRUE)
+legend_name = ""
+stat_label = c("R2", "p.value")
+colors_vec = community_colors
+
+get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, stat_label, colors_vec = community_colors, facet = TRUE){
   g = ggplot(df, aes(x = x, y = y)) +
-  geom_point(aes(fill = fill_col), shape = 21, alpha = 0.5, size = point_size) +
+  geom_point(aes(fill = fill_col), shape = 21, alpha = 0.5, size = 2) +
   stat_poly_line(color = 'black', formula = formula, fill = '#E1DEDC') +
-  # stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), method = "spearman", label.y.npc="top", label.x.npc = "left", size = 6, familty = 'Gafata') +
+  # stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), method = "spearman", label.y.npc="top", label.x.npc = "left", size = 6, family = 'Gafata') +
   stat_poly_eq(use_label(stat_label), family = 'Gafata', formula = formula, size = 6) +
   scale_fill_manual(values = colors_vec, name = legend_name) +
   labs(title = '', x = x_tit, y = y_tit) +
@@ -171,16 +175,80 @@ get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, 
   return(g)
 }
 
-health_meta = temp_meta #temp_meta %>% filter(CST %in% c('I', 'II', 'III', 'V'))
-s = get_bv_to_ps(health_meta, health_meta$mt_pseudotime, health_meta$shannon_index, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors)
+health_meta = meta %>% filter(CST %in% c('I', 'II', 'III', 'V'))
+s = get_bv_to_ps(meta, health_meta$mt_pseudotime, health_meta$shannon_index, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors)
 #y ~ poly(x, 3, raw = TRUE)
 nn_s = get_bv_to_ps(nn_temp_meta, nn_temp_meta$mt_pseudotime, nn_temp_meta$shannon_index, nn_temp_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors)
 print(s)
 
 # Save
-ggsave(filename = paste0(save_path, 'shannon_to_ps_', date, '.png'), plot = s, height = 6, width = 10, units = "in", dpi = 150)
-ggsave(filename = paste0(save_path, 'nn_shannon_to_ps_', date, '.png'), plot = nn_s, height = 6, width = 10, units = "in", dpi = 150)
+# ggsave(filename = paste0(save_path, 'shannon_to_ps_', date, '.png'), plot = s, height = 6, width = 10, units = "in", dpi = 150)
+# ggsave(filename = paste0(save_path, 'nn_shannon_to_ps_', date, '.png'), plot = nn_s, height = 6, width = 10, units = "in", dpi = 150)
 ```
+
+## Shannon with blocking
+
+```{r}
+# Extract p. value
+overall_p <- function(my_model) {
+    f <- summary(my_model)$fstatistic
+    p <- pf(f[1],f[2],f[3],lower.tail=F)
+    attributes(p) <- NULL
+    return(p)
+}
+
+# Create results data frame
+cst_col = rep(c('I', 'II', 'III', 'V'), length(unique(meta$db)) + 1)
+db_col = rep(append(unique(meta$db), "All"), each = 4)
+columns = c("Dataset", "CST", "R squared", "P. value") 
+db_df = data.frame(matrix(nrow = length(db_col), ncol = length(columns))) 
+colnames(db_df) = columns
+db_df$Dataset = db_col
+db_df$CST = cst_col
+
+db_plots_lst = list()
+
+#Loop over db's
+for (data in append(unique(meta$db), "All")){
+  print(data)
+  
+  if (data == "All"){
+    d = "All"
+    db_meta = meta 
+  } else {
+    d = data
+    db_meta = meta %>% filter(db == d)
+  }
+  
+  # curr_s = get_bv_to_ps(db_meta, db_meta$mt_pseudotime, db_meta$shannon_index, db_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"))
+  # db_plots_lst[[d]] = curr_s
+  
+  for (cst_val in  unique(db_meta$CST)){
+    cst_meta = db_meta %>% filter(CST == cst_val)
+    if (nrow(cst_meta) > 3){
+      model = lm(cst_meta$shannon_index ~ poly(cst_meta$mt_pseudotime, 3, raw = TRUE), data = cst_meta)
+      model_summary <- summary(model)
+      
+      r_squared <- model_summary$r.squared
+      p_value <- overall_p(model)
+      
+      db_df[which(db_df$Dataset == data & db_df$CST == cst_val), "R squared"] = r_squared
+      db_df[which(db_df$Dataset == data & db_df$CST == cst_val), "P. value"] = p_value
+    }
+  }
+}
+
+db_df = na.omit(db_df)
+db_df$Dataset[db_df$Dataset == "temp_hiseq"] <- "UAB (hiseq)"
+db_df$Dataset[db_df$Dataset == "temp_pyro"] <- "UAB (pyrosequencing)"
+db_df$Dataset[db_df$Dataset == "carter"] <- "PVI"
+db_df$Dataset[db_df$Dataset == "cros_II"] <- "AVPVC"
+db_df$Dataset[db_df$Dataset == "cros_I"] <- "VCU"
+db_df$Dataset[db_df$Dataset == "srin"] <- "PHS"
+
+write_xlsx(db_df, paste0("C:/Users/morts/Documents/TAU/Drafts/PAGA_paper/", "blocks_res.xlsx"))
+```
+
 
 ## ROC statistics preparation
 
@@ -281,43 +349,35 @@ write_xlsx(res_df, paste0(top_path, "/naive_statistics_res.xlsx"))
 ## Menstruation changes
 
 ```{r, fig.height = 3, fig.width = 4}
-stat_box_data <- function(y, upper_limit = max(iris$Sepal.Length) * 1.15) {
-  return( 
-    data.frame(
-      y = 0.95 * upper_limit,
-      label = paste('count =', length(y), '\n',
-                    'mean =', round(mean(y), 1), '\n')
-    )
-  )
-}
-
-
 tmp = nn_menst_df %>%
-            mutate(type = 'Manifold\nsamples') %>%
-            bind_rows(menst_df %>% mutate(type = 'Held-out\nsamples')) %>%
-            drop_na(ps_diff_abs) %>%
+            mutate(type = 'Held-out\nsamples') %>%
+            bind_rows(menst_df %>% mutate(type = 'Manifold\nsamples')) %>%
+            # drop_na(ps_diff) %>%
             mutate_each_(funs(factor(.)), c('sum_all')) %>%
-            mutate_each_(funs(as.numeric(.)), c('ps_diff_abs', 'ps_diff')) 
+            mutate_each_(funs(as.numeric(.)), c('ps_diff_abs', 'ps_diff', 'log_ps_diff')) 
+
+# tmp = tmp %>% group_by(subjectID) %>% filter(sum(menst) >= 1)
+arr0 = menst_df %>% filter(sum_all == 0) %>% dplyr::select(ps_diff)  %>% drop_na() %>% pull()
+arr1 = tmp %>% filter(sum_all == 1) %>% dplyr::select(ps_diff)  %>% drop_na() %>% pull()
+wilcox.test(arr0, arr1, paired = FALSE, alternative = "less")
 
 m = ggplot(data = tmp, 
-           aes(x = factor(sum_all), y = log(ps_diff)), color = 'slategray4') +
+           aes(x = factor(sum_all), y = (log_ps_diff)), color = 'slategray4') + #log(ps_diff)
   geom_boxplot(lwd = 0.4) +
   labs(x = '', y = "Pseudo-time\ndifferentiation (log)") +
   # scale_y_continuous(limits = c(0, 1)) +
-  scale_x_discrete(labels = c('0' = 'Non-\nmenstruation', '1' = 'Menstruation\n +- 2 days')) +
-  scale_y_continuous(limits = c(-15, 5)) +
-  geom_signif(comparisons = list(c("0", "1")), test = "wilcox.test", test.args=list(alternative = "less", paired = FALSE, var.equal = FALSE),
-              map_signif_level = TRUE, textsize = 8, tip_length = 0) + #, family = 'Gafata'
-  # stat_summary(fun.data = stat_box_data, geom = "text", fun.y = mean,
-  #                 family = 'Gafata', hjust = 0.5, vjust = 0.9, size = 5) +
-  facet_wrap(~factor(type, levels=c('Manifold\nsamples', 'Held-out\nsamples')), nrow = 1, ncol = 2) +
+  scale_x_discrete(labels = c('0' = 'Non-\nmenstruation', '1' = 'Menstruation\nand 2 days before')) +
+  scale_y_continuous(limits = c(-10, 3)) +
+  geom_signif(comparisons = list(c("0", "1")), test = "wilcox.test", test.args = list(alternative = "less", paired = FALSE, var.equal = FALSE),
+              map_signif_level = TRUE, textsize = 8, tip_length = 0) + 
+  facet_wrap(~factor(type, levels = c('Manifold\nsamples', 'Held-out\nsamples')), nrow = 1, ncol = 2) +
   theme_bw(base_family = 'Gafata') +
   theme(text = element_text(size = 20),
         axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, lineheight = 0.3),
         axis.title.y = element_text(lineheight = 0.3),
         strip.text = element_text(size = 25, lineheight = 0.3))
 print(m)
-ggsave(filename = paste0(save_path, 'menst_delta_02072023.png'), plot = m,
+ggsave(filename = paste0(save_path, 'menst_delta_14102023.png'), plot = m,
        width = 3, height = 2, units = "in", limitsize = TRUE)
 ```
 
