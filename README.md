@@ -1,2 +1,2 @@
-# Manifold_Project
+# Vaginal microbiome manifold
 Manifold detection analysis
