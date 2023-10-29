@@ -146,17 +146,6 @@ levels(nn_temp_meta$subjectID) = levels(temp_meta$subjectID)
 ## Shannon diversity
 
 ```{r Shannon to ps}
-df = db_meta
-x = df$mt_pseudotime
-y = df$shannon_index
-fill_col = df$subCST
-x_tit = ""
-y_tit = ""
-formula = y ~ poly(x, 3, raw = TRUE)
-legend_name = ""
-stat_label = c("R2", "p.value")
-colors_vec = community_colors
-
 get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, stat_label, colors_vec = community_colors, facet = TRUE){
   g = ggplot(df, aes(x = x, y = y)) +
   geom_point(aes(fill = fill_col), shape = 21, alpha = 0.5, size = 2) +
@@ -248,6 +237,18 @@ db_df$Dataset[db_df$Dataset == "srin"] <- "PHS"
 
 write_xlsx(db_df, paste0("C:/Users/morts/Documents/TAU/Drafts/PAGA_paper/", "blocks_res.xlsx"))
 ```
+```{r}
+# library(lme4)
+# 
+# rmodel = lmer(shannon_index ~ mt_pseudotime + (1 | db), data = meta)
+# print(summary(rmodel))
+# print(coef(rmodel)$db)
+
+library(nlme)
+m1 <- lme(shannon_index ~ mt_pseudotime, random = ~1|db, data = meta)
+anova(m1)
+```
+
 
 
 ## ROC statistics preparation
