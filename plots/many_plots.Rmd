@@ -16,6 +16,7 @@ rm(list=ls())
 
 library(vegan)
 library(ggarchery)
+library(nlme)
 library(data.table)
 library(ggpubr)
 library(ggpmisc)
@@ -33,6 +34,7 @@ library(extrafont)
 library(showtext)
 library(cowplot)
 library(circlize)
+library(gtools)
 library(ComplexHeatmap)
 font_add_google("Gafata")
 showtext_auto()
@@ -175,13 +177,13 @@ print(s)
 # ggsave(filename = paste0(save_path, 'nn_shannon_to_ps_', date, '.png'), plot = nn_s, height = 6, width = 10, units = "in", dpi = 150)
 ```
 
-## Shannon with blocking
+## Shannon with study effect
 
 ```{r}
 # Extract p. value
 overall_p <- function(my_model) {
     f <- summary(my_model)$fstatistic
-    p <- pf(f[1],f[2],f[3],lower.tail=F)
+    p <- pf(f[1], f[2], f[3], lower.tail = F)
     attributes(p) <- NULL
     return(p)
 }
@@ -209,9 +211,6 @@ for (data in append(unique(meta$db), "All")){
     db_meta = meta %>% filter(db == d)
   }
   
-  # curr_s = get_bv_to_ps(db_meta, db_meta$mt_pseudotime, db_meta$shannon_index, db_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"))
-  # db_plots_lst[[d]] = curr_s
-  
   for (cst_val in  unique(db_meta$CST)){
     cst_meta = db_meta %>% filter(CST == cst_val)
     if (nrow(cst_meta) > 3){
@@ -235,23 +234,18 @@ db_df$Dataset[db_df$Dataset == "cros_II"] <- "AVPVC"
 db_df$Dataset[db_df$Dataset == "cros_I"] <- "VCU"
 db_df$Dataset[db_df$Dataset == "srin"] <- "PHS"
 
-write_xlsx(db_df, paste0("C:/Users/morts/Documents/TAU/Drafts/PAGA_paper/", "blocks_res.xlsx"))
+write_xlsx(db_df, paste0("../data/study_effect_res.xlsx"))
 ```
 ```{r}
-# library(lme4)
-# 
-# rmodel = lmer(shannon_index ~ mt_pseudotime + (1 | db), data = meta)
-# print(summary(rmodel))
-# print(coef(rmodel)$db)
-
-library(nlme)
 m1 <- lme(shannon_index ~ mt_pseudotime, random = ~1|db, data = meta)
-anova(m1)
+print(anova(m1))
+print(summary(m1))
 ```
 
 
 
 ## ROC statistics preparation
+
 
 ```{r, fig.height=15, fig.width=15, warning=FALSE, message=FALSE}
 get_t_test = function(df, x_colname, alternative){
@@ -486,18 +480,18 @@ get_ps_to_time = function(df, leg_pos, points_size, scale_menst_size, text_size 
 ```
 
 
-```{r}
+```{r, warning=FALSE}
 labels = c('A', 'B', 'C', 'D')
 specific_subjects_lst = c('UAB103', 'UAB059', 'UAB002') #UAB012
 
 p1 = get_umap_subject(all_meta, all_meta, 'UAB103', 0.9, 3, 30, 0.5, 0) +
     labs(y = 'UMAP') +
-    annotate(geom = 'text', label = 'A', x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5, family = 'Gafata', size = 7) +
+    annotate(geom = 'text', label = 'a', x = -Inf, y = Inf, hjust = -1, vjust = 1.5, family = 'Gafata', size = 7) +
     theme(axis.title = element_text(size = 42, color = 'white'))
 p2 = get_umap_subject(all_meta, all_meta, 'UAB059', 0.9, 3, 30, 0.5, 0) +
-     annotate(geom = 'text', label = 'B', x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5, family = 'Gafata', size = 7) 
+     annotate(geom = 'text', label = 'b', x = -Inf, y = Inf, hjust = -1, vjust = 1.5, family = 'Gafata', size = 7) 
 p3 = get_umap_subject(all_meta, all_meta, 'UAB002', 0.9, 3, 30, 0.5, 0) +
-     annotate(geom = 'text', label = 'C', x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5, family = 'Gafata', size = 7) 
+     annotate(geom = 'text', label = 'c', x = -Inf, y = Inf, hjust = -1, vjust = 1.5, family = 'Gafata', size = 7) 
 
 
 specific_sub_df = subset(temp_meta, subjectID %in% specific_subjects_lst)
@@ -514,14 +508,24 @@ prog_df = prog_df +
   axis.text.y = element_text(angle = 90, vjust = 0.5, hjust = 0.5),
   strip.text.x = element_blank(),
   plot.margin = rep(unit(0, "null"), 4),
-  legend.spacing.y = unit(0, "lines"),
-  legend.spacing.x = unit(0.6, 'cm')) +
-  guides(fill = guide_legend(override.aes = list(shape = 21, size = 5), ncol = 2, title.hjust = 2, title.vjust = 1))
+  legend.spacing.y = unit(0, "cm"),
+  legend.spacing.x = unit(0, 'cm'),
+  legend.text = element_text(size = 25)) +
+  guides(color = guide_legend(override.aes = list(shape = 19, size = 2), nrow = 2, title.hjust = 0.1, title.vjust = 1))
 
-pall = grid.arrange(arrangeGrob(p1, p2, p3, ncol = 3, widths = c(1.25, 1, 1)), prog_df, heights = c(1.5/4, 2.5/4), nrow = 2)
+p_umap = plot_grid(p1, p2, p3, ncol = 3, align = "vh")
+pall = plot_grid(p_umap, prog_df, ncol = 1, align = "v", rel_heights = c(.6, 1), rel_widths = c(1, .5))
 
-ggsave(filename = paste0(save_path, 'UMAP_subjectID_example_02072023.png'), plot = pall,
-       width = 10, height = 8, units = "in", limitsize = TRUE)
+ggsave2(
+  paste0(save_path, "UMAP_subjectID_example_30102023.png"),
+  plot = pall,
+  device = NULL,
+  path = NULL,
+  scale = 1,
+  width = 8,
+  height = 5,
+  units = c("in"),
+  dpi = 150)
 ```
 
 ## Pseudotime progression facet
@@ -577,17 +581,19 @@ pall = plot_grid(
 
 nn_ps_plot = get_ps_to_time(nn_temp_meta, 'right', 6, c(2, 5), 100) +
            facet_wrap(~nn_temp_meta$subjectID, ncol = 4)
+
 both = plot_grid(pall, nn_ps_plot, nrow = 1, labels = c('a', 'b'), label_size = 150)
+
 ggsave2(
   paste0(save_path, "supp_figure_s8.png"),
   plot = both,
   device = NULL,
   path = NULL,
   scale = 1,
-  width = 30,
-  height = 15,
+  width = 42,
+  height = 22,
   units = c("in"),
-  dpi = 300)
+  dpi = 150)
 ```
 
 ## BV medications
