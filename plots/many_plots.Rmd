@@ -43,7 +43,7 @@ showtext_auto()
 ## Variables
 
 ```{r variables}
-top_path = '../Data/'
+top_path = '../data/'
 
 file_name = paste0(top_path, 'ps_res_PCA_umap_02072023.xlsx')
 
@@ -152,7 +152,6 @@ get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, 
   g = ggplot(df, aes(x = x, y = y)) +
   geom_point(aes(fill = fill_col), shape = 21, alpha = 0.5, size = 2) +
   stat_poly_line(color = 'black', formula = formula, fill = '#E1DEDC') +
-  # stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), method = "spearman", label.y.npc="top", label.x.npc = "left", size = 6, family = 'Gafata') +
   stat_poly_eq(use_label(stat_label), family = 'Gafata', formula = formula, size = 6) +
   scale_fill_manual(values = colors_vec, name = legend_name) +
   labs(title = '', x = x_tit, y = y_tit) +
@@ -236,51 +235,16 @@ db_df$Dataset[db_df$Dataset == "srin"] <- "PHS"
 
 write_xlsx(db_df, paste0("../data/study_effect_res.xlsx"))
 ```
+
 ```{r}
 m1 <- lme(shannon_index ~ mt_pseudotime, random = ~1|db, data = meta)
 print(anova(m1))
-print(summary(m1))
 ```
 
 
 
-## ROC statistics preparation
+## ROC naive statistics 
 
-
-```{r, fig.height=15, fig.width=15, warning=FALSE, message=FALSE}
-get_t_test = function(df, x_colname, alternative){
-  count_df = count(df, !!rlang::sym(x_colname))
-  
-  plot = ggplot(color = 'slategray4') +
-    geom_boxplot(data = df, aes(x = factor(!!rlang::sym(x_colname)), y = mt_pseudotime), lwd = 0.4) +
-    labs(x = str_replace_all(x_colname, '_', ' '), y = 'Pseudo-time') +
-    geom_signif(data = df, aes(x = factor(!!rlang::sym(x_colname)), y = mt_pseudotime), comparisons = list(c("0", "1")), test = "wilcox.test", test.args = list(alternative = alternative, paired = FALSE, var.equal = FALSE),
-              map_signif_level = FALSE, textsize = 10, tip_length = 0) + 
-    # geom_text(data = count_df, aes(y = 1.2, x = factor(!!rlang::sym(x_colname)), label = n), size = 5) +
-    theme_bw(base_family = 'Gafata') +
-    scale_y_continuous(limits = c(0, 1.25)) +
-    theme(text = element_text(size = 20),
-          axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, lineheight = 0.3),
-          axis.title.y = element_text(lineheight = 0.3),
-          strip.text = element_text(size = 20, lineheight = 0.3))
-  
-  return(plot)
-}
-
-n = get_bv_to_ps(health_meta, health_meta$mt_pseudotime, health_meta$nugent, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ x, 'subCST', c("R2", "p.value"), community_colors) + theme(legend.position = 'none')
-p = get_bv_to_ps(health_meta, health_meta$mt_pseudotime, health_meta$ph, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ x, 'subCST', c("R2", "p.value"), community_colors) + theme(legend.position = 'none')
-
-bv = get_t_test(all_meta %>% filter(!is.na(BV_bin)), "BV_bin", "less")
-clue = get_t_test(all_meta %>% filter(!is.na(clue)), "clue", "less")
-whiff = get_t_test(all_meta %>% filter(!is.na(whiff)), "whiff", "less")
-fluid = get_t_test(all_meta %>% filter(!is.na(vag_fluid)), "vag_fluid", "less")
-
-plot_grid(
-  plot_grid(n, p, nrow = 2, ncol = 1),
-  plot_grid(bv, clue, whiff, fluid, nrow = 2),
-  nrow = 2, rel_heights = c(1, 0.5)
-)
-```
 ```{r}
 res_df = data.frame(CST = character(0), p_value = numeric(0), n = numeric(0), Method = character(0), Parameter = character(0))
 
@@ -340,27 +304,19 @@ write_xlsx(res_df, paste0(top_path, "/naive_statistics_res.xlsx"))
 
 ```
 
-
 ## Menstruation changes
 
 ```{r, fig.height = 3, fig.width = 4}
 tmp = nn_menst_df %>%
             mutate(type = 'Held-out\nsamples') %>%
             bind_rows(menst_df %>% mutate(type = 'Manifold\nsamples')) %>%
-            # drop_na(ps_diff) %>%
             mutate_each_(funs(factor(.)), c('sum_all')) %>%
             mutate_each_(funs(as.numeric(.)), c('ps_diff_abs', 'ps_diff', 'log_ps_diff')) 
 
-# tmp = tmp %>% group_by(subjectID) %>% filter(sum(menst) >= 1)
-arr0 = menst_df %>% filter(sum_all == 0) %>% dplyr::select(ps_diff)  %>% drop_na() %>% pull()
-arr1 = tmp %>% filter(sum_all == 1) %>% dplyr::select(ps_diff)  %>% drop_na() %>% pull()
-wilcox.test(arr0, arr1, paired = FALSE, alternative = "less")
-
 m = ggplot(data = tmp, 
-           aes(x = factor(sum_all), y = (log_ps_diff)), color = 'slategray4') + #log(ps_diff)
+           aes(x = factor(sum_all), y = (log_ps_diff)), color = 'slategray4') + 
   geom_boxplot(lwd = 0.4) +
   labs(x = '', y = "Pseudo-time\ndifferentiation (log)") +
-  # scale_y_continuous(limits = c(0, 1)) +
   scale_x_discrete(labels = c('0' = 'Non-\nmenstruation', '1' = 'Menstruation\nand 2 days before')) +
   scale_y_continuous(limits = c(-10, 3)) +
   geom_signif(comparisons = list(c("0", "1")), test = "wilcox.test", test.args = list(alternative = "less", paired = FALSE, var.equal = FALSE),
@@ -372,50 +328,53 @@ m = ggplot(data = tmp,
         axis.title.y = element_text(lineheight = 0.3),
         strip.text = element_text(size = 25, lineheight = 0.3))
 print(m)
-ggsave(filename = paste0(save_path, 'menst_delta_14102023.png'), plot = m,
+ggsave(filename = paste0(save_path, 'menst_delta_14102023.png'), plot = m, dpi = 300,
        width = 3, height = 2, units = "in", limitsize = TRUE)
 ```
 
 ## Metabolites differences
 
 ```{r Amines}
-met_df = read_excel(paste0(top_path, 'metabolites_with_ps_PCA_umap_02072023.xlsx'))
+met_df = read_excel(paste0(top_path, 'metabolites_with_ps_PCA_umap.xlsx'))
 met_df$high_ps = as.factor(met_df$high_ps)
 get_met_boxplot = function(df, bin_ps_col, col, colname, lab){
   p <- ggplot(data = df, aes(x = factor(bin_ps_col), y = log(col)), color = 'slategray4') +
-  geom_boxplot(lwd = 0.65) +
+  geom_boxplot(lwd = 0.2) +
   labs(x = 'Pseudo-time category', y = paste0(colname, ' (', expression('\u03BC'), 'M), (log)')) +
   scale_x_discrete(labels = c('0' = 'Low', '1' = 'High')) +
+  scale_y_continuous(limits = c(min(log(col) - 0.5) + 1, max(log(col)) + 1)) +
   geom_signif(comparisons = list(c("0", "1")), test = "wilcox.test", test.args=list(alternative = "less"),
-              map_signif_level = TRUE, textsize = 5, tip_length = 0) + #, family = 'Gafata'
-  # annotate(geom = 'text', label = lab, x = -Inf, y = Inf, hjust = -0.5, vjust = 1.2, family = 'Gafata', size = 8) +
+              map_signif_level = TRUE, textsize = 10, tip_length = 0) + #, family = 'Gafata'
   guides(fill=guide_legend(ncol=2)) +
   theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
+  theme(text = element_text(size = 30),
         axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
   return(p)
 }
 
-p1 = get_met_boxplot(met_df, met_df$high_ps, met_df$Cadaverine, 'Cadaverine', 'A')
+p1 = get_met_boxplot(met_df, met_df$high_ps, met_df$Cadaverine, 'Cadaverine', 'a')
 p1 = p1 +  theme(axis.title.x = element_blank())
-p2 = get_met_boxplot(met_df, met_df$high_ps, met_df$Putrescine, 'Putrescine', 'B')
+p2 = get_met_boxplot(met_df, met_df$high_ps, met_df$Putrescine, 'Putrescine', 'b')
 p2 = p2 +  theme(axis.title.x = element_blank())
-p3 = get_met_boxplot(met_df, met_df$high_ps, met_df$Spermidine, 'Spermidine', 'C')
+p3 = get_met_boxplot(met_df, met_df$high_ps, met_df$Spermidine, 'Spermidine', 'c')
 p3 = p3 +  theme(axis.title.x = element_blank())
-p4 = get_met_boxplot(met_df, met_df$high_ps, met_df$Spermine, 'Spermine', 'D')
-p5 = get_met_boxplot(met_df, met_df$high_ps, met_df$Tyramine, 'Tyramine', 'E')
-p6 = get_met_boxplot(met_df, met_df$high_ps, met_df$total, 'Total', 'F')
+p4 = get_met_boxplot(met_df, met_df$high_ps, met_df$Spermine, 'Spermine', 'd')
+p5 = get_met_boxplot(met_df, met_df$high_ps, met_df$Tyramine, 'Tyramine', 'e')
+p6 = get_met_boxplot(met_df, met_df$high_ps, met_df$total, 'Total', 'f')
 
 
-ggarrange(p1, p2, p3, p4, p5, p6, nrow = 2, ncol = 3) %>%
-ggexport(filename = paste0(save_path, 'metbolites_17072023.png'), width = 1300, height = 700, common.legend = TRUE, legend = "bottom")
-while (!is.null(dev.list()))  dev.off()
-
-print(p6)
+pall = plot_grid(p1, p2, p3, p4, p5, p6, nrow = 2, ncol = 3)
+ggsave2(
+  paste0(save_path, 'supp_figure_s6.png'),
+  plot = pall,
+  device = NULL,
+  path = NULL,
+  scale = 1,
+  width = 6,
+  height = 4,
+  units = c("in"),
+  dpi = 300)
 ```
-
-
-
 
 ```{r}
 mets = ggarrange(p1, p2, p3, p4, p5, p6, nrow = 3, ncol = 3)
@@ -424,7 +383,7 @@ ggexport(filename = paste0(save_path, 'all_17072023.png'), width = 1300, height 
 while (!is.null(dev.list()))  dev.off()
 ```
 
-## Representative pseudotime progression of four representative woman
+## Representative pseudotime progression of three representative woman
 
 ```{r}
 get_umap_subject = function(all_meta, curr_meta, subject, size, size_cst, title_size, linewidth, vjust){
@@ -439,17 +398,16 @@ get_umap_subject = function(all_meta, curr_meta, subject, size, size_cst, title_
                color = 'black', lineend = 'round', linejoin = 'mitre', linewidth = linewidth) +
     geom_point(data = sub_df, aes(x = fa1, y = fa2, fill = subCST), size = size_cst,
                pch = 21, alpha = 0.7, color = 'gray49') +
-    labs(title = str_replace(subject, '_R', ''), x = NULL, y = NULL) + 
+    labs(title = str_replace(subject, '_R', ''), x = "") + 
     theme_bw(base_family = 'Gafata') +
     scale_fill_manual(values = community_colors, name = 'subCST', na.value = "grey31") +
     theme(axis.ticks = element_blank(),
         axis.text = element_blank(),
-        axis.title = element_blank(),
         plot.title = element_text(size = title_size, family = 'Gafata', vjust = vjust, hjust =  0.03),
-        legend.position = "none",
         legend.key = element_rect(colour = 'black', size = 1),
-        plot.margin = rep(unit(0, "null"), 4),
-        panel.spacing = unit(0,"null"),)
+        plot.margin = unit(c(t = 1, r = 0.2, b = 0, l = -0.2), "cm"),
+        legend.position = "none") +
+        theme(text = element_text(size = 45)) 
   
   return(g)
 }
@@ -467,13 +425,14 @@ get_ps_to_time = function(df, leg_pos, points_size, scale_menst_size, text_size 
     scale_size_discrete(range = scale_menst_size, guide = 'none') +
     labs(title = '', x = 'Time (days)', y = 'Pseudo-time') +
     theme_bw(base_family = 'Gafata')+
-    theme(panel.spacing.x = unit(0.15, "lines"), panel.spacing.y = unit(0.12, "lines")) +
-    # theme(strip.text = element_text(size = 60, lineheight = 0.3),
-    #     strip.background = element_rect(fill = "antiquewhite2", colour = "black"), margin = margin(0, 0, 0, 0)) + 
-    theme(legend.position = leg_pos, legend.spacing.y = unit(0.01, 'cm'), legend.spacing.x = unit(0.01, 'cm'),
-          legend.text = element_text(margin = margin(t = 0.2))) +
-    theme(text = element_text(size = text_size)) + 
-    guides(colour = guide_legend(override.aes = list(size = 10)))
+    # theme(panel.spacing.x = unit(0.15, "lines"), panel.spacing.y = unit(0.12, "lines")) +
+    theme(legend.position = leg_pos, legend.spacing.y = unit(0.001, 'cm'), legend.spacing.x = unit(0.001, 'cm'),
+          legend.text = element_text(margin = margin(0, 0, 0, 0))) +
+    theme(text = element_text(size = 45)) + 
+    theme(plot.margin = rep(unit(0, "null"), 4)) +
+    guides(colour = guide_legend(override.aes = list(size = 10))) +
+    theme(axis.title.y = element_text(margin = margin(0, 0, 0, 0))) +
+    theme(axis.title.x = element_text(margin = margin(0, 0, 0, 0)))
   
   return(g)
 }
@@ -481,158 +440,50 @@ get_ps_to_time = function(df, leg_pos, points_size, scale_menst_size, text_size 
 
 
 ```{r, warning=FALSE}
-labels = c('A', 'B', 'C', 'D')
-specific_subjects_lst = c('UAB103', 'UAB059', 'UAB002') #UAB012
+specific_subjects_lst = c('UAB103', 'UAB059', 'UAB002') 
 
-p1 = get_umap_subject(all_meta, all_meta, 'UAB103', 0.9, 3, 30, 0.5, 0) +
-    labs(y = 'UMAP') +
-    annotate(geom = 'text', label = 'a', x = -Inf, y = Inf, hjust = -1, vjust = 1.5, family = 'Gafata', size = 7) +
-    theme(axis.title = element_text(size = 42, color = 'white'))
-p2 = get_umap_subject(all_meta, all_meta, 'UAB059', 0.9, 3, 30, 0.5, 0) +
-     annotate(geom = 'text', label = 'b', x = -Inf, y = Inf, hjust = -1, vjust = 1.5, family = 'Gafata', size = 7) 
-p3 = get_umap_subject(all_meta, all_meta, 'UAB002', 0.9, 3, 30, 0.5, 0) +
-     annotate(geom = 'text', label = 'c', x = -Inf, y = Inf, hjust = -1, vjust = 1.5, family = 'Gafata', size = 7) 
+p1 = get_umap_subject(all_meta, all_meta, 'UAB103', 0.9, 3, 45, 0.5, 0) +
+    annotate(geom = 'text', label = 'a', x = -Inf, y = Inf, hjust = -1, vjust = 1.5, family = 'Gafata', size = 18) +
+    labs(y = '   ') +
+    theme(axis.title.y = element_text(size = 42)) +
+    theme(plot.margin = unit(c(0, 0.2, 0, 0.6), "cm"),)
+p2 = get_umap_subject(all_meta, all_meta, 'UAB059', 0.9, 3, 45, 0.5, 0) +
+     annotate(geom = 'text', label = 'b', x = -Inf, y = Inf, hjust = -1, vjust = 1.5, family = 'Gafata', size = 18) +
+     theme(axis.title.y = element_blank())
+p3 = get_umap_subject(all_meta, all_meta, 'UAB002', 0.9, 3, 45, 0.5, 0) +
+     annotate(geom = 'text', label = 'c', x = -Inf, y = Inf, hjust = -1, vjust = 1.5, family = 'Gafata', size = 18)  +
+     theme(axis.title.y = element_blank())
 
 
 specific_sub_df = subset(temp_meta, subjectID %in% specific_subjects_lst)
 specific_sub_df$subjectID <- factor(specific_sub_df$subjectID, levels = specific_subjects_lst)
-specific_sub_df$lab <- with(specific_sub_df, ifelse(subjectID == 'UAB103', 'D',
-                                             ifelse(subjectID == 'UAB059', 'E', 
-                                             ifelse(subjectID == 'UAB002', 'F', 'G'))))
 
 prog_df = get_ps_to_time(specific_sub_df, 'bottom', 3, c(1, 3), 30)
 prog_df = prog_df + 
-  # geom_text(data = specific_sub_df, label = specific_sub_df$lab, x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5, family = 'Gafata', size = 7) +
   facet_wrap(~specific_sub_df$subjectID, nrow = 1) +
-  theme(strip.background = element_blank(),
-  axis.text.y = element_text(angle = 90, vjust = 0.5, hjust = 0.5),
-  strip.text.x = element_blank(),
-  plot.margin = rep(unit(0, "null"), 4),
-  legend.spacing.y = unit(0, "cm"),
-  legend.spacing.x = unit(0, 'cm'),
-  legend.text = element_text(size = 25)) +
-  guides(color = guide_legend(override.aes = list(shape = 19, size = 2), nrow = 2, title.hjust = 0.1, title.vjust = 1))
+  theme(strip.background = element_blank()) +
+  theme(strip.text.x = element_blank()) +
+  theme(plot.margin = unit(c(t = -1, r = 0.23, b = 0, l = 0), "cm")) +
+  theme(axis.text.y = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = -15, b = 0, l = 0))) +
+  theme(axis.title.x = element_text(margin = margin(t = -15, r = 0, b = 0, l = 0))) +
+  theme(legend.text = element_text(size = 45)) +
+  theme(panel.spacing.x = unit(0.225, "lines")) +
+  guides(color = guide_legend(override.aes = list(shape = 19, size = 4), nrow = 2, title.hjust = 0.8, title.vjust = 0.5))
 
-p_umap = plot_grid(p1, p2, p3, ncol = 3, align = "vh")
-pall = plot_grid(p_umap, prog_df, ncol = 1, align = "v", rel_heights = c(.6, 1), rel_widths = c(1, .5))
+p_umap = plot_grid(p1, p2, p3, ncol = 3, align = "h", rel_widths = c(1, .85, .85))
+pall = plot_grid(p_umap, prog_df, nrow = 2, rel_heights = c(.75, 1), align = "v")#rel_widths = c(0.6, 1))
 
 ggsave2(
-  paste0(save_path, "UMAP_subjectID_example_30102023.png"),
+  paste0(save_path, "figure_4.png"),
   plot = pall,
   device = NULL,
   path = NULL,
   scale = 1,
   width = 8,
-  height = 5,
+  height = 6,
   units = c("in"),
-  dpi = 150)
-```
-
-## Pseudotime progression facet
-
-```{r Pseudotime progression all facet}
-ps_plot = get_ps_to_time(temp_meta, 'right', 2, c(0.5, 1.5),30) +
-          facet_wrap(~temp_meta$subjectID, nrow = 8)
-ggsave(filename = paste0(save_path, 'psToch_', date, '.png'), plot = ps_plot, height = 11, width = 9.5,   units = "in", dpi = 150)
-```
-
-## UMAP each woman facet
-
-```{r UMAP for each woman, message = FALSE, warning = FALSE}
-## Plots and save
-subjects_lst = mixedsort(unique(temp_meta$subjectID))
-plots_lst = list()
-
-
-for (i in  1:length(subjects_lst)){
-  sub = subjects_lst[i]
-  plot = get_umap_subject(all_meta, all_meta, sub, 0.9, 8, 60, 0.85, 0)
-  # plot = get_umap_subject(all_meta, sub, 0.7, 5, 60, 0.8, -2)
-  plots_lst[[i]] = plot
-}
-# (all_meta, curr_meta, subject, size, size_cst, title_size, linewidth, vjust)
-p = grid.arrange(grobs = plots_lst, ncol = 9)
-ggsave(filename = paste0(save_path, 'UMAP_subjectID_03072023.png'), plot = p,
-       width = 60, height = 65, units = "in", limitsize = FALSE)
-```
-
-## NN plots (UMAP and ps)
-
-```{r UMAP for each woman, message = FALSE, warning = FALSE}
-## Plots and save
-subjects_lst = mixedsort(unique(nn_temp_meta$subjectID))
-plots_lst = list()
-nn_temp_meta = nn_temp_meta %>% 
-  mutate_at(c('fa1', 'fa2'), as.numeric) %>%
-  mutate_at(c('subCST'), as.factor)
-
-for (i in  1:length(subjects_lst)){
-  sub = subjects_lst[i]
-  plot = get_umap_subject(all_meta, nn_temp_meta, sub, 0.7, 5, 100, 0.8, 0)
-  plots_lst[[i]] = plot
-}
-
-pall = plot_grid(
-  plotlist = plots_lst,
-  align = 'vh',
-  # hjust = -1,
-  nrow = 3
-)
-
-nn_ps_plot = get_ps_to_time(nn_temp_meta, 'right', 6, c(2, 5), 100) +
-           facet_wrap(~nn_temp_meta$subjectID, ncol = 4)
-
-both = plot_grid(pall, nn_ps_plot, nrow = 1, labels = c('a', 'b'), label_size = 150)
-
-ggsave2(
-  paste0(save_path, "supp_figure_s8.png"),
-  plot = both,
-  device = NULL,
-  path = NULL,
-  scale = 1,
-  width = 42,
-  height = 22,
-  units = c("in"),
-  dpi = 150)
-```
-
-## BV medications
-
-```{r, message=FALSE, warning=FALSE}
-med_meta = read_excel(paste0(top_path, "after_medication_ps_15082023.xlsx"), sheet = 'meta', col_names = TRUE) %>% select(-c("...1"))
-med_meta = med_meta %>% mutate_at(c('BV_medication'), as.character) %>% 
-           mutate(BV_medication = recode(BV_medication, "0" = "No", "1" = "Yes"))
-label_med <- setNames(as.character(med_meta$subjectID), med_meta$group_name)
-
-m = get_bv_to_ps(med_meta, med_meta$time, med_meta$mt_pseudotime, med_meta$BV_medication, 'Time (days)', 'Pseudo-time', y ~ x, point_size = 4, facet = FALSE, 'Medication', c("eq"), c("No" = "#2E9B8F", "Yes" = "#E76F51")) +
-    facet_wrap(~med_meta$group_name, nrow = 3, scales = "free", labeller = as_labeller(label_med)) +
-    theme(legend.position = 'bottom')
-    
-
-ggsave(filename = paste0(save_path, 'ps_after_med_', date, '.png'), plot = m, height = 8, width = 13, units = "in", dpi = 150)
-
-```
-
-## Beginning pseudotime predicts BV in experiment
-
-```{r}
-cur_df = read_excel(paste0(top_path, "ps_predict_bv_7_max_02072023.xlsx"), sheet = 'meta', col_names = TRUE) %>% select(-c("...1"))
-  
-last = head(unique(cur_df$shuff_num), n = 1)
-auc_value = as.character(round(subset(cur_df, shuff_num == last)$auc[1],4))
-
-p = ggplot() +
-  geom_line(data = subset(cur_df, shuff_num == last), aes(x = fpr, y = tpr, group = shuff_num), size = 0.8, color = 'gray19') +
-  labs(title = '', x = 'False positive rate', y = 'True Positive Rate') +
-  annotate(geom = 'text', label = 'A', x = -Inf, y = Inf, hjust = -0.5, vjust = 1.5, family = 'Gafata', size = 7) +
-  annotate(geom = 'text', label = paste0('AUC = ', auc_value), x = Inf, y = -Inf, hjust = 1.5, vjust = -1.7, size = 6, family = 'Gafata') +
-  theme_bw(base_family = 'Gafata') +
-  theme(text = element_text(size = 20),
-        legend.position = 'none')
-print(p)
-
-ggsave(filename = paste0(save_path, 'ps_predicts_bv_02072023_7_max.png'), plot = p,
-       width = 2, height = 1.5, units = "in", limitsize = TRUE)
+  dpi = 300)
 ```
 
 ## Bacterial changes along arms
@@ -673,37 +524,28 @@ melt_df$species <- gsub('g ', '',
                    gsub('o ', '', melt_df$species))
 melt_df = melt_df %>% filter(branch %in% c('I','II','III','V'))
 
-cols = c("Lactobacillus crispatus" = "#9d0208", #
-         "Lactobacillus gasseri" = "#FFD60A", #
-         "Lactobacillus iners" = "#e85d04", #
-         "Lactobacillus jensenii" = "#E2D6B8", #
-         "Lactobacillus Cluster 1" = "#C9184A", #
-         "Lactobacillus psittaci" = "#FF758F", #
-         "Gardnerella vaginalis" = "#22577a", #
-         # "BVAB1" = "#7798AB", #
-         "Bifidobacterium" = "#10002b", #
-         # "Staphylococcus" = "#3c096c", #
-         "Prevotella" = "#7b2cbf", #
-         "Atopobium" = "#e0aaff", #
+cols = c("Lactobacillus crispatus" = "#9d0208", 
+         "Lactobacillus gasseri" = "#FFD60A", 
+         "Lactobacillus iners" = "#e85d04", 
+         "Lactobacillus jensenii" = "#E2D6B8", 
+         "Lactobacillus Cluster 1" = "#C9184A", 
+         "Lactobacillus psittaci" = "#FF758F", 
+         "Gardnerella vaginalis" = "#22577a", 
+         "Bifidobacterium" = "#10002b", 
+         "Prevotella" = "#7b2cbf", 
+         "Atopobium" = "#e0aaff", 
          "Ureaplasma" = "#d8f3dc", 
          "Anaerococcus" = "#95d5b2",
-         "Megasphaera" = "#52b788", #
-         "Aerococcus" = "#2d6a4f", #
-         # "Mageeibacillus" = "#0F4C37", # 
-         "Corynebacterium" = "#edc4b3", #
-         # "Enterococcus" = "#deab90", #
-         "Streptococcus" = "#cd9777", #
-         # "Parvimonas" = "#b07d62", #
+         "Megasphaera" = "#52b788", 
+         "Aerococcus" = "#2d6a4f", 
+         "Corynebacterium" = "#edc4b3", 
+         "Streptococcus" = "#cd9777", 
          "Finegoldia" = "#774936",
          "Peptoniphilus" = "#2C2C4E",
-         # "Gemella haemolysans" = "#4a4e69",
-         # "Dialister" = "#9a8c98",
-         # "Sneathia" = "#C9ADA7",
-         # "Saccharimonadales" = "#f2e9e4",
          "Others" = "#878890")
 
 melt_df$species <- factor(melt_df$species,
-                      levels = names(cols))#names(cols))
+                      levels = names(cols))
 
 get_barplot = function(df, title){
   g = ggplot(df, aes(fill = species, y = value, x = mt_pseudotime)) + 
@@ -738,23 +580,129 @@ g2 = get_barplot(subset(melt_df, branch == 'II'), 'II') +
       theme(legend.position = 'none', axis.title.x = element_blank(), axis.title.y = element_blank())
 
 g3 = get_barplot(subset(melt_df, branch == 'III'), 'III') +
-      theme(legend.position = 'none')#, axis.title.x = element_blank(), axis.title.y = element_blank())
+      theme(legend.position = 'none')
 
 g4 = get_barplot(subset(melt_df, branch == 'V'), 'V') +
       theme(legend.position = 'none')
 
-# g5 = get_barplot(subset(melt_df, branch == 'IV-A'), 'IV-A') +
-#       theme(legend.position = 'none', axis.title.y = element_blank())
-# 
-# g6 = get_barplot(subset(melt_df, branch == 'IV-B'), 'IV-B') +
-#       theme(legend.position = 'none', axis.title.y = element_blank())
-
 ## Save
 ggarrange(g1, g2, g3, g4, nrow = 2, ncol = 2) %>%
-# ggarrange(g1, g2, g3, g4, g5, g6, nrow = 2, ncol = 3) %>%
-
 ggexport(filename = paste0(save_path, 'bacterial_abundance_0.2_02072023.png'), width = 750, height = 620, common.legend = TRUE, legend = "bottom")
 while (!is.null(dev.list()))  dev.off()
+```
+
+
+## UMAP each woman facet
+
+```{r UMAP for each woman, message = FALSE, warning = FALSE}
+## Plots and save
+subjects_lst = mixedsort(unique(temp_meta$subjectID))
+plots_lst = list()
+
+
+for (i in  1:length(subjects_lst)){
+  sub = subjects_lst[i]
+  plot = get_umap_subject(all_meta, all_meta, sub, 0.9, 8, 60, 0.85, 0)
+  plots_lst[[i]] = plot
+}
+
+pall = plot_grid(plotlist = plots_lst, nrow = 9)
+ggsave2(
+  paste0(save_path, "UMAP_subjectID_03072023.png"),
+  plot = pall,
+  device = NULL,
+  path = NULL,
+  scale = 1,
+  width = 45,
+  height = 38,
+  units = c("in"),
+  dpi = 300)
+# p = grid.arrange(grobs = plots_lst, ncol = 9)
+# ggsave(filename = paste0(save_path, 'UMAP_subjectID_03072023.png'), plot = p,
+#        width = 70, height = 65, units = "in", limitsize = FALSE, dpi = 300)
+```
+## Pseudotime progression facet
+
+```{r Pseudotime progression all facet}
+ps_plot = get_ps_to_time(temp_meta, 'right', 2, c(0.5, 1.5),50) +
+          facet_wrap(~temp_meta$subjectID, nrow = 8)
+ggsave(filename = paste0(save_path, 'psToch_', date, '.png'), plot = ps_plot, height = 11, width = 9.5,   units = "in", dpi = 300)
+```
+
+## NN plots (UMAP and ps)
+
+```{r UMAP for each woman, message = FALSE, warning = FALSE}
+## Plots and save
+subjects_lst = mixedsort(unique(nn_temp_meta$subjectID))
+plots_lst = list()
+nn_temp_meta = nn_temp_meta %>% 
+  mutate_at(c('fa1', 'fa2'), as.numeric) %>%
+  mutate_at(c('subCST'), as.factor)
+
+for (i in  1:length(subjects_lst)){
+  sub = subjects_lst[i]
+  plot = get_umap_subject(all_meta, nn_temp_meta, sub, 0.7, 5, 150, 0.8, 0)
+  plots_lst[[i]] = plot
+}
+
+pall = plot_grid(
+  plotlist = plots_lst,
+  scale = 0.9,
+  align = 'vh',
+  # hjust = -1,
+  nrow = 3
+)
+# df, leg_pos, points_size, scale_menst_size, text_size = 30
+nn_ps_plot = get_ps_to_time(nn_temp_meta, 'right', 8, c(2, 5), 150) +
+           facet_wrap(~nn_temp_meta$subjectID, ncol = 4)
+
+both = plot_grid(NULL, pall, nn_ps_plot, nrow = 1, labels = c('a', '', 'b'), label_size = 150, rel_widths = c(.05, 1, 1))
+
+ggsave2(
+  paste0(save_path, "supp_figure_s8.png"),
+  plot = both,
+  device = NULL,
+  path = NULL,
+  scale = 1,
+  width = 45,
+  height = 22,
+  units = c("in"),
+  dpi = 300)
+```
+
+## BV medications
+
+```{r, message=FALSE, warning=FALSE}
+med_meta = read_excel(paste0(top_path, "after_medication_ps_15082023.xlsx"), sheet = 'meta', col_names = TRUE) %>% select(-c("...1"))
+med_meta = med_meta %>% mutate_at(c('BV_medication'), as.character) %>% 
+           mutate(BV_medication = recode(BV_medication, "0" = "No", "1" = "Yes"))
+label_med <- setNames(as.character(med_meta$subjectID), med_meta$group_name)
+
+get_ps_to_time_med = function(df, leg_pos, cols, stat_label, text_size = 40) {
+  g = ggplot(data = df, aes(x = time, y = mt_pseudotime)) +
+    geom_point(aes(colour = BV_medication), alpha = 0.6, size = 2, pch = 19) + 
+    stat_poly_line(color = 'black', formula = y ~ x, fill = '#E1DEDC', size = 0.2) +
+    scale_colour_manual(values = cols, name = "Medications") +
+    stat_poly_eq(use_label(stat_label), family = 'Gafata', formula = y ~ x, size = 10) +
+    labs(title = '', x = 'Time (days)', y = 'Pseudo-time') +
+    theme_bw(base_family = 'Gafata')+
+    theme(panel.spacing.x = unit(0.15, "lines"), panel.spacing.y = unit(0.12, "lines")) +
+    theme(legend.position = leg_pos, legend.spacing.y = unit(0.01, 'cm'), legend.spacing.x = unit(0.01, 'cm'),
+          legend.text = element_text(size = 60, margin = margin(t = 0.2)),
+          legend.title = element_text(size = 60)) +
+    theme(text = element_text(size = text_size)) + 
+    guides(colour = guide_legend(override.aes = list(size = 5))) 
+  
+  return(g)
+}
+
+m = get_ps_to_time_med(med_meta, 'bottom', c("No" = "#2E9B8F", "Yes" = "#E76F51"), c("eq")) +
+    facet_wrap(~med_meta$group_name, nrow = 3, scales = "free", labeller = as_labeller(label_med)) +
+    theme(legend.position = 'bottom')
+    
+
+ggsave(filename = paste0(save_path, 'supp_figure_s7.png'), plot = m, height = 6, width = 8, units = "in", dpi = 300)
+
 ```
 
 ## Heatmap
@@ -783,7 +731,6 @@ plot_heatmap <- function(df, vec_cst, vec_score, n = 25) {
   
   # Plot
   col_fun = colorRamp2(seq(0, 100, length = 6), c("#F1F3F3", "#DDFFF7", "#93E1D8", "#FFA69E", "#AA4465", "#462255"))
-  # col_fun2 = colorRamp2(seq(min(vec_score), max(vec_score), length = 3), c("#ece2f0", "#a6bddb", "#1c9099"), space = "RGB")
   column_ha = HeatmapAnnotation(subCST = all_df$subCST,
                                   Score = anno_barplot(all_df$score, baseline = 0, height = unit(0.7, "cm"),
                                                        gp = gpar(col = "#462255"), axis_param = list(at = c(0, 1))),
@@ -841,8 +788,7 @@ h_meta = h_meta[match(df$sample_id, rownames(h_meta)),]
 
 ```{r}
 h = plot_heatmap(df, h_meta$subCST, h_meta$score)# get_h(h_dft, cst_df$subCST, cst_df$score)
-print(h)
-png(paste(top_path, 'figures/all_df_02072023.png', sep = ''), 
+png(paste(save_path, 'all_df_02072023.png', sep = ''), 
     width = 720, height = 800)
 draw(h, padding = unit(c(2, 2, 2, 20), "mm"),
      heatmap_legend_side = "bottom", annotation_legend_side = "bottom", gap = unit(1, "cm"))#, ht_gap = unit(7, "mm"))
@@ -856,15 +802,15 @@ df <- count(meta, CST)
 v = ggplot(data = meta, aes(x = CST, y = shannon_index, fill = CST)) +
     geom_boxplot() +
     # stat_summary(fun.data = stat_box_data, geom = "text", hjust = 0.5, vjust = 0.9, size = 8) + 
-    geom_text(data = df, aes(y = 5.2, label = n), size = 5) +
+    geom_text(data = df, aes(y = 5.2, label = n), size = 20) +
     scale_fill_manual(values = cst_colors, name = 'CST', na.value = "grey31") +
     theme_bw(base_family = 'Gafata') +
     labs(x = 'subCST', y = 'Shannon diversity index') +
-    theme(text = element_text(size = 25)) +
+    theme(text = element_text(size = 65)) +
     scale_y_continuous(limits = c(0, 5.5)) +
     theme(legend.position = 'bottom') +
-    guides(fill=guide_legend(nrow=1))
-ggsave(paste0(top_path, 'figures/valencia_res_boxplot.png'), height = 4, width = 8, units = "in", dpi = 150)
+    guides(fill=guide_legend(nrow=2))
+ggsave(paste0(save_path, 'supp_figure_s1_b.png'), height = 6, width = 8, units = "in", dpi = 300)
 print(v)
 ```
 
@@ -880,39 +826,5 @@ ggsave2(
 )
 ```
 
-
-## BC on X to euclidean on PCA
-
-```{r}
-bc_meta = read_excel(paste0(top_path, 'ps_res_BC_X_02072023.xlsx'), sheet = sheet_meta, col_names = TRUE)#get_data(paste0(top_path, 'ps_res_BC_X_02072023.xlsx'), sheet_meta, c())
-# bc_umap = get_data(paste0(top_path, 'ps_res_BC_X_02072023.xlsx'), sheet_umap, c("text", "numeric", "numeric"))
-# meta = get_data(paste0(top_path, 'ps_res_16052023.xlsx'), sheet_meta, coltypes_vec)
-# umap = get_data(paste0(top_path, 'ps_res_16052023.xlsx'), sheet_umap, c("text", "numeric", "numeric"))
-# bc_all_meta = get_meta_order(bc_meta)
-# bc_all_meta = bc_all_meta %>% 
-  left_join(bc_umap %>% rownames_to_column("run"), by = c("run"))
-# all_meta = get_meta_order(meta)
-# all_meta = all_meta %>% 
-#   left_join(bc_umap %>% rownames_to_column("run"), by = c("run")) 
-
-scatter_df = bc_meta %>% rename(mt_pseudotime_bc = mt_pseudotime) %>% select(c('sampleID', 'mt_pseudotime_bc')) %>%
-             left_join(all_meta)
-
-get_scatter_comparison = function(df, x, y, col, xlab, ylab){
-  s = ggplot(data = df) +
-      geom_point(aes(x = x, y = y, fill = col), shape = 21, alpha = 0.5, size = 1.5) +
-      labs(x = xlab, y = ylab) +
-      theme_bw(base_family = 'Gafata') +
-      geom_abline() +
-      scale_fill_manual(values = community_colors, name = 'subCST') +
-      theme(text = element_text(size = 30))
-  return(s)
-}
-
-s = get_scatter_comparison(scatter_df, scatter_df$mt_pseudotime_bc, scatter_df$mt_pseudotime, scatter_df$subCST, 'Pseudotime BC based', 'Pseudotime euclidean based')
-
-ggsave(paste0(save_path, 'euclidean_to_bc_02072023.png'), plot = s,
-       width = 5, height = 3, units = 'in')
-```
 
 

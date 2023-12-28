@@ -117,8 +117,9 @@ nn_amsel = get_data2(nn_roc_file, 'BV_amsel_bin')
 
 ```{r}
 roc_line_width = 1
-txt_size = 35
+txt_size = 32
 auc_txt_size = 10
+margin_val = 0
 ```
 
 
@@ -141,7 +142,7 @@ g1 = ggplot() +
         legend.position = 'none',
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
-        plot.margin=margin(l=-0.8,unit="cm"))
+        plot.margin = unit(c(0, 0, margin_val, margin_val), "cm"))
 # print(g1)
 ```
 
@@ -164,7 +165,7 @@ g2 = ggplot() +
         legend.position = 'none',
         axis.text = element_blank(),
         axis.ticks = element_blank(),
-        plot.margin=margin(l=-0.8,unit="cm"))
+        plot.margin = unit(c(0, margin_val, margin_val, margin_val), "cm"))
 # print(g2)
 ```
 
@@ -187,7 +188,7 @@ g3 = ggplot() +
         legend.position = 'none',
         axis.text = element_blank(),
         axis.ticks = element_blank(),
-        plot.margin=margin(l=-0.8,unit="cm"))
+        plot.margin = unit(c(0, 0, margin_val, margin_val), "cm"))
 # print(g3)
 ```
 
@@ -210,7 +211,7 @@ g4 = ggplot() +
         legend.position = 'none',
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
-        plot.margin=margin(l=-0.8,unit="cm"))
+        plot.margin = unit(c(margin_val, margin_val, 0, margin_val), "cm"))
 # print(g4)
 ```
 
@@ -233,7 +234,7 @@ g5 = ggplot() +
         legend.position = 'none',
         axis.text = element_blank(),
         axis.ticks = element_blank(),
-        plot.margin=margin(l=-0.8,unit="cm"))
+        plot.margin = unit(c(margin_val, margin_val, margin_val, margin_val), "cm"))
 # print(g5)
 ```
 
@@ -256,7 +257,7 @@ g6 = ggplot() +
         legend.position = 'none',
         axis.text = element_blank(),
         axis.ticks = element_blank(),
-        plot.margin=margin(l=-0.8,unit="cm"))
+        plot.margin = unit(c(margin_val, 0, margin_val, margin_val), "cm"))
 # print(g6)
 ```
 
@@ -279,7 +280,7 @@ g7 = ggplot() +
   theme_bw(base_family = 'Gafata') +
   theme(text = element_text(size = txt_size),
         legend.position = 'none',
-        plot.margin=margin(l=-0.8,unit="cm"))
+        plot.margin = unit(c(margin_val, margin_val, 0, 0), "cm"))
 # print(g7)
 ```
 
@@ -302,7 +303,7 @@ g8 = ggplot() +
         legend.position = 'none',
         axis.text.y = element_blank(),
         axis.ticks.y = element_blank(),
-        plot.margin=margin(l=-0.8,unit="cm"))
+        plot.margin = unit(c(margin_val, margin_val, margin_val, 0), "cm"))
 # print(g8)
 ```
 
@@ -325,7 +326,7 @@ g9 = ggplot() +
         legend.position = 'none',
         axis.text.y = element_blank(),
         axis.ticks.y = element_blank(),
-        plot.margin = margin(l = 0.1, b = 0.2, r = 0.1, t = 0.01, unit="cm"))
+        plot.margin = unit(c(margin_val, 0, margin_val, 0), "cm"))
 # print(g9)
 ```
 
@@ -342,8 +343,11 @@ get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, 
   theme_bw(base_family = 'Gafata') +
   theme(text = element_text(size = txt_size),
         axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
-        axis.title.x = element_text(margin = margin(t = 1)),#margin(t = -35)),
-        strip.text.x = element_text(size = 40, margin = margin(2, 2, 2, 2)))#margin(-8, -8, -8, -8))) 
+        strip.text.x = element_text(size = 35, margin = margin(-5, -5, -5, -5)),
+        strip.text.y = element_text(size = 35, margin = margin(-5, -5, -5, -5))) + 
+    theme(panel.spacing = unit(2, 'pt')) +
+    theme(axis.title.y = element_text(margin = margin(0, -5, 0, 0))) +
+    theme(axis.title.x = element_text(margin = margin(-30, 0, 0, 0)))
 
   
   if (facet){
@@ -354,16 +358,15 @@ get_bv_to_ps = function(df, x, y, fill_col, x_tit, y_tit, formula, legend_name, 
 
 health_meta = meta %>% filter(CST %in% c('I', 'II', 'III', 'V'))
 nn_health_meta = nn_meta %>% filter(CST %in% c('I', 'III'))
-# s = get_bv_to_ps(health_meta, health_meta$mt_pseudotime, health_meta$shannon_index, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors) +
-#   theme(legend.position = 'none')
-# y ~ poly(x, 3, raw = TRUE)
-nn_s = get_bv_to_ps(nn_health_meta, nn_health_meta$mt_pseudotime, nn_health_meta$shannon_index, nn_health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors) +
-   theme(legend.position = 'none')
+s = get_bv_to_ps(health_meta, health_meta$mt_pseudotime, health_meta$shannon_index, health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors) +
+  theme(legend.position = 'none')
+# nn_s = get_bv_to_ps(nn_health_meta, nn_health_meta$mt_pseudotime, nn_health_meta$shannon_index, nn_health_meta$subCST, 'Pseudo-time', 'Shannon Diversity Index', y ~ poly(x, 3, raw = TRUE), 'subCST', c("R2", "p.value"), community_colors) +
+#    theme(legend.position = 'none')
 # print(s)
 
 # Save
 # ggsave(filename = paste0(save_path, 'shannon_to_ps_', date, '.png'), plot = s, height = 6, width = 10, units = "in", dpi = 150)
-ggsave(filename = paste0(save_path, 'nn_shannon_to_ps_', date, '.png'), plot = nn_s, height = 2, width = 4, units = "in", dpi = 300)
+# ggsave(filename = paste0(save_path, 'nn_shannon_to_ps_', date, '.png'), plot = nn_s, height = 2, width = 4, units = "in", dpi = 300)
 ```
 
 ## save
@@ -382,11 +385,16 @@ ggsave2(
   device = NULL,
   path = NULL,
   scale = 1,
-  width = 6,
-  height = 8.5,
+  width = 5.5,
+  height = 7,
   units = c("in"),
   dpi = 300)
 ```
+
+```{r}
+
+```
+
 
 
 ```{r}
